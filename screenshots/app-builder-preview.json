@@ -1,0 +1,36 @@
+{
+  "url": "http://127.0.0.1:8080/",
+  "viewports": {
+    "desktop": {
+      "width": 1280,
+      "height": 800,
+      "status": 200,
+      "title": "Rick App",
+      "hasCanvas": false,
+      "bodyTextLen": 421,
+      "bodyTextHash": "0e50962189e76bf003985eb5260db51173a57390d5fc1f24c075aac141da9cd0",
+      "bodyTextPrefix": "Rick App El entorno arma el turno Mesa Agenda Cintas Canon Paque",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-preview.png"
+    },
+    "mobile": {
+      "width": 390,
+      "height": 844,
+      "status": 200,
+      "title": "Rick App",
+      "hasCanvas": false,
+      "bodyTextLen": 360,
+      "bodyTextHash": "5609c4476740ea12d18d74e49b509506fc91bda03c0401d3f4c4bef5f3906470",
+      "bodyTextPrefix": "Rick App Mesa · Grok Grok Espejo Ácido 3AM Sin temas aún. El cli",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-preview-mobile.png"
+    }
+  },
+  "brandWarnings": [],
+  "authWarnings": [],
+  "verdictFile": "/workspace/screenshots/app-builder-preview.json"
+}
