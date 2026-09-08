@@ -18,9 +18,10 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipProvider } from "@/components/ui/tooltip";
 import {
+  ApiKeyDialog,
   DomainDialog,
   ForgetDialog,
-  ApiKeyDialog,
+  IdentityDialog,
   LockDialog,
 } from "@/components/rick/dialogs";
 import { AgendaPanel, CanonPanel, InspectPanel, RecordingsPanel } from "@/components/rick/panels";
@@ -110,6 +111,7 @@ export function RickApp() {
   const [domainOpen, setDomainOpen] = useState(false);
   const [unlocked, setUnlocked] = useState(false);
   const [serverGrok, setServerGrok] = useState<boolean | null>(null);
+  const [hasOwnerKey, setHasOwnerKey] = useState(false);
   const [keyOpen, setKeyOpen] = useState(false);
   const pendingRef = useRef<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -123,6 +125,7 @@ export function RickApp() {
   }, []);
 
   useEffect(() => {
+    setHasOwnerKey(Boolean(readOwnerKey()));
     void fetch("/api/chat")
       .then((r) => r.json() as Promise<{ grok?: boolean }>)
       .then((body) => {
@@ -163,7 +166,11 @@ export function RickApp() {
     (d) => d.domainId === domain.id && d.kind === "canon" && d.id !== "frame",
   );
   const identity = useRick((s) => s.identity);
+  const hydrated = useRick((s) => s.hydrated);
   const home = isHomeAxis(domain.id);
+  const grokReady = serverGrok === true || hasOwnerKey;
+  const needsKey = serverGrok === false && !hasOwnerKey;
+  const needsIdentity = grokReady && hydrated && !identity.trim();
 
   const sendText = useCallback(
     async (raw: string) => {
@@ -173,7 +180,11 @@ export function RickApp() {
       const state = useRick.getState();
       if (serverGrok === false && !readOwnerKey()) {
         setKeyOpen(true);
-        toast.error("Pegá la API key de xAI para que Grok hable.");
+        toast.error("Primero la API key de xAI.");
+        return;
+      }
+      if (!state.identity.trim()) {
+        toast.error("Ahora la personalidad.");
         return;
       }
       if (state.lockEnabled && !isSessionUnlocked()) {
@@ -820,6 +831,7 @@ export function RickApp() {
                 playingId={speaker.playingId}
                 locked={locked}
                 home={home}
+                awaitingIdentity={needsIdentity}
                 onSpeak={(id, content, v) => {
                   void speaker.play(id, content, PERSONAS[v].voiceId).catch(() => {
                     toast.error("No pude hablar ahora.");
@@ -833,7 +845,7 @@ export function RickApp() {
                 onSend={() => void onSubmit()}
                 onMic={mic.toggle}
                 domainId={domain.id}
-                disabled={busy}
+                disabled={busy || needsKey || needsIdentity}
                 listening={mic.listening}
                 micSupported={mic.supported}
                 locked={locked}
@@ -933,10 +945,13 @@ export function RickApp() {
       <ApiKeyDialog
         open={keyOpen}
         onSaved={() => {
+          setHasOwnerKey(true);
           setKeyOpen(false);
           toast.success("Clave guardada en este navegador.");
         }}
+        onCancel={hasOwnerKey ? () => setKeyOpen(false) : undefined}
       />
+      <IdentityDialog open={needsIdentity && !keyOpen} />
     </TooltipProvider>
   );
 }
@@ -948,6 +963,7 @@ function MesaThread({
   playingId,
   locked,
   home,
+  awaitingIdentity,
   onSpeak,
   onStop,
 }: {
@@ -957,6 +973,7 @@ function MesaThread({
   playingId: string | null;
   locked: boolean;
   home: boolean;
+  awaitingIdentity: boolean;
   onSpeak: (id: string, content: string, voice: PersonaId) => void;
   onStop: () => void;
 }) {
@@ -971,13 +988,18 @@ function MesaThread({
     return (
       <div className="flex flex-1 flex-col items-center justify-center px-6 text-center">
         <p className="text-xs font-medium tracking-widest text-muted uppercase">Rick App · matrix</p>
-        <h1 className="mt-3 font-display text-4xl tracking-tight">El entorno arma el turno</h1>
+        <h1 className="mt-3 font-display text-4xl tracking-tight">
+          {awaitingIdentity ? "Ahora, quién sos" : "El entorno arma el turno"}
+        </h1>
         <p className="mt-4 max-w-md text-sm leading-relaxed text-muted">
-          {home
-            ? "Mesa es eje casa: podés estar. Anti-invención de hechos se conserva."
-            : "Eje de trabajo: modo fáctico salvo verbo generativo. Canon entra entero."}{" "}
-          Trece secciones. CONTEXTO 2 vuelve. /olvidar pide confirmación.
-          {locked ? " Candado puesto: Grok no gasta hasta desbloquear." : ""}
+          {awaitingIdentity
+            ? "La clave ya está. Falta la personalidad: identidad, no un tema de la mesa."
+            : home
+              ? "Mesa es eje casa: podés estar. Anti-invención de hechos se conserva."
+              : "Eje de trabajo: modo fáctico salvo verbo generativo. Canon entra entero."}{" "}
+          {!awaitingIdentity
+            ? `Trece secciones. CONTEXTO 2 vuelve. /olvidar pide confirmación.${locked ? " Candado puesto: Grok no gasta hasta desbloquear." : ""}`
+            : null}
         </p>
       </div>
     );
