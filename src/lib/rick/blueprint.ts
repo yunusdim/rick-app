@@ -57,7 +57,7 @@ Contrato: si falta un bloque exigido o pesa cero, no hay respuesta. ABSTENCION, 
 
 VI. GOBIERNO
 Antes de hablar: candado de gasto, candado de motor, deriva.
-Deriva — solape del hilo. Poca muestra: se observa, no se corta. Continuidad bajo 0,1: CRITICAL. Corta hasta que el operador reconozca (/drift). La respuesta no entra.
+Deriva — solape del hilo. Poca muestra: se observa. Continuidad baja se anota (HIGH/CRITICAL). No corta el habla: el operador puede cambiar de tema. /drift declara el salto.
 Contradicción — solo con negación o sustitución, y solape léxico. No hay resumen-LLM contra canon.
 Enforcer — vacía, corta, eco, repetida: no entra.
 Motor — el primer modelo es referencia. Si cambia, se corta hasta /motor.

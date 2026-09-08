@@ -94,7 +94,6 @@ export function RickApp() {
   const ackDrift = useRick((s) => s.ackDrift);
   const setMotor = useRick((s) => s.setMotor);
   const bumpUsage = useRick((s) => s.bumpUsage);
-  const setDriftBlocked = useRick((s) => s.setDriftBlocked);
   const addDoc = useRick((s) => s.addDoc);
   const addTrace = useRick((s) => s.addTrace);
   const motorBlocked = useRick((s) => s.motorBlocked);
@@ -183,10 +182,6 @@ export function RickApp() {
         toast.error("Motor cambió. /motor para reconocer el modelo nuevo.");
         return;
       }
-      if (state.driftBlocked) {
-        toast.error("Deriva crítica. /drift para continuar.");
-        return;
-      }
 
       const active = state.domains.find((d) => d.id === state.activeDomainId) ?? state.domains[0];
       const domainMsgs = state.messages.filter((m) => m.domainId === active.id);
@@ -209,7 +204,6 @@ export function RickApp() {
           : "";
 
       if (drift.risk === "CRITICAL") {
-        setDriftBlocked(true);
         addChecks([
           {
             id: uid(),
@@ -217,10 +211,10 @@ export function RickApp() {
             kind: "deriva",
             alert: true,
             abstain: false,
-            detail: `CRITICAL · ${drift.reason}`,
+            detail: `CRITICAL · ${drift.reason} · movimiento declarado al seguir`,
           },
         ]);
-        toast.error("Deriva crítica. /drift para continuar.");
+        toast("El hilo saltó. Sigo. Queda anotado.");
       }
 
       const assembled = assemble({
@@ -314,16 +308,14 @@ export function RickApp() {
       bumpTurns();
       setDraft("");
 
-      if (drift.risk === "CRITICAL" || !contract.ok) {
-        const reason =
-          drift.risk === "CRITICAL" ? "deriva CRITICAL" : `contrato FAIL: ${contract.detail}`;
+      if (!contract.ok) {
         addMessage({
           domainId: active.id,
           role: "assistant",
-          content: `[BLOQUEADO] ${reason}. La respuesta no entra al hilo.`,
+          content: `[BLOQUEADO] contrato FAIL: ${contract.detail}. La respuesta no entra al hilo.`,
           voice: state.voice,
         });
-        toast.error(reason);
+        toast.error(`contrato FAIL: ${contract.detail}`);
         return;
       }
 
@@ -504,7 +496,7 @@ export function RickApp() {
         }
       }
     },
-    [addChecks, addMessage, bumpTurns, bumpUsage, busy, patchMessage, serverGrok, setDiag, setDriftBlocked, setLastAssembled, setMotor, setSummary, speaker],
+    [addChecks, addMessage, bumpTurns, bumpUsage, busy, patchMessage, serverGrok, setDiag, setLastAssembled, setMotor, setSummary, speaker],
   );
 
   const mic = useMic((text) => void sendText(text));
@@ -610,7 +602,7 @@ export function RickApp() {
     }
     if (key === "drift") {
       ackDrift();
-      toast("Deriva reconocida.");
+      toast("Deriva reconocida. El hilo puede saltar.");
       return true;
     }
     if (key === "restaurar") {

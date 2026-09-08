@@ -9,7 +9,7 @@ export function computeDrift(userTurn: string, messages: RickMessage[]): DriftRe
   const prev = all.slice(-6, -3).join(" ");
   const density = Math.min(1, content / 24);
 
-  if (all.length < 6 || content < 4 || tokens(last).size < 4 || tokens(prev).size < 4) {
+  if (all.length < 8 || content < 4 || tokens(last).size < 8 || tokens(prev).size < 8) {
     return {
       risk: "LOW",
       type: "observe",
@@ -21,7 +21,7 @@ export function computeDrift(userTurn: string, messages: RickMessage[]): DriftRe
   }
 
   const continuity = overlap(last, prev);
-  if (continuity < 0.1) {
+  if (continuity < 0.05) {
     return {
       risk: "CRITICAL",
       type: "ruptura",
@@ -31,7 +31,7 @@ export function computeDrift(userTurn: string, messages: RickMessage[]): DriftRe
       abstain: false,
     };
   }
-  if (continuity < 0.2) {
+  if (continuity < 0.15) {
     return {
       risk: "HIGH",
       type: "salto",
@@ -41,7 +41,7 @@ export function computeDrift(userTurn: string, messages: RickMessage[]): DriftRe
       abstain: false,
     };
   }
-  if (continuity < 0.35) {
+  if (continuity < 0.3) {
     return {
       risk: "MEDIUM",
       type: "desvio",
