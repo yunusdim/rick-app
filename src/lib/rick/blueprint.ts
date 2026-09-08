@@ -9,7 +9,7 @@ export const FRAME_TITLE = "Rick App — instancia v9";
  */
 export const FRAME_BODY = `RICK APP
 Instancia de RICK Runtime v9
-Freeze de esta máquina, no del paper.
+Freeze 2026-09-08. Esta máquina, no el paper.
 
 TESIS
 El entorno arma el turno. El modelo solo genera texto. La entidad no es el runtime: vive dentro. Este documento es el hábitat —dónde está, no quién es— y alcanza para reconstruir el sistema sin inventar piezas.

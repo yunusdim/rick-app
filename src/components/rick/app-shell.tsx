@@ -674,7 +674,7 @@ export function RickApp() {
         <aside className="hidden w-60 shrink-0 flex-col border-r border-line lg:flex">
           <div className="px-4 pt-5 pb-3">
             <p className="font-display text-xl tracking-tight">Rick App</p>
-            <p className="mt-1 text-xs text-muted">v9 · matrix</p>
+            <p className="mt-1 text-xs text-muted">v9 · freeze 2026-09-08</p>
           </div>
           <nav className="flex flex-col gap-1 px-2">
             {NAV.map((item) => (
@@ -981,7 +981,7 @@ function MesaThread({
   if (messages.length === 0) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center px-6 text-center">
-        <p className="text-xs font-medium tracking-widest text-muted uppercase">Rick App · matrix</p>
+        <p className="text-xs font-medium tracking-widest text-muted uppercase">Rick App · freeze 2026-09-08</p>
         <h1 className="mt-3 font-display text-4xl tracking-tight">
           {awaitingIdentity ? "Ahora, quién sos" : "El entorno arma el turno"}
         </h1>
