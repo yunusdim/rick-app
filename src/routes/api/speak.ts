@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
-import { resolveApiKey } from "@/lib/rick/resolve-key.server";
+import { resolveMotor } from "@/lib/rick/resolve-key.server";
 import { allowSpend, clientIp } from "@/lib/rick/spend.server";
 
 const Body = z.object({
@@ -12,11 +12,17 @@ export const Route = createFileRoute("/api/speak")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const apiKey = resolveApiKey(request);
-        if (!apiKey) {
+        const motor = resolveMotor(request);
+        if (!motor) {
           return Response.json(
-            { error: "Falta la API key de xAI. Pegala al abrir." },
+            { error: "Falta la API key del motor. Pegala al abrir." },
             { status: 503 },
+          );
+        }
+        if (motor.engine !== "xai") {
+          return Response.json(
+            { error: "La voz solo está en xAI. El chat sí puede ser otro motor." },
+            { status: 400 },
           );
         }
 
@@ -50,7 +56,7 @@ export const Route = createFileRoute("/api/speak")({
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              Authorization: `Bearer ${apiKey}`,
+              Authorization: `Bearer ${motor.key}`,
             },
             body: JSON.stringify({
               text,

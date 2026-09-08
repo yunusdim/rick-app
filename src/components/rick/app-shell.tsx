@@ -52,6 +52,7 @@ import type { ViewId } from "@/lib/rick/types";
 import { computeVce } from "@/lib/rick/vce";
 import { cn, uid } from "@/lib/utils";
 import { watchKeyboard } from "@/lib/rick/keyboard";
+import { readMotor } from "@/lib/rick/motor";
 import { readOwnerKey } from "@/lib/rick/owner-key";
 
 const NAV: { id: ViewId; label: string; icon: typeof FileText }[] = [
@@ -93,6 +94,7 @@ export function RickApp() {
   const ackMotor = useRick((s) => s.ackMotor);
   const ackDrift = useRick((s) => s.ackDrift);
   const setMotor = useRick((s) => s.setMotor);
+  const primeMotor = useRick((s) => s.primeMotor);
   const bumpUsage = useRick((s) => s.bumpUsage);
   const addDoc = useRick((s) => s.addDoc);
   const addTrace = useRick((s) => s.addTrace);
@@ -726,7 +728,7 @@ export function RickApp() {
             </div>
             {recorder.recording ? <span className="rec-dot size-2 rounded-full bg-rec" /> : null}
             {serverGrok === false ? (
-              <Tooltip content="Cambiar API key de xAI">
+              <Tooltip content="Cambiar motor y API key">
                 <Button
                   variant="ghost"
                   size="iconSm"
@@ -941,7 +943,9 @@ export function RickApp() {
         onSaved={() => {
           setHasOwnerKey(true);
           setKeyOpen(false);
-          toast.success("Clave guardada en este navegador.");
+          const m = readMotor();
+          if (m?.model) primeMotor(m.model);
+          toast.success(`Motor ${m?.id ?? ""} en este navegador.`);
         }}
         onCancel={hasOwnerKey ? () => setKeyOpen(false) : undefined}
       />

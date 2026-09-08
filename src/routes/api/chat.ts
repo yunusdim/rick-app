@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
-import { resolveApiKey, envGrokReady } from "@/lib/rick/resolve-key.server";
+import { envGrokReady, resolveMotor } from "@/lib/rick/resolve-key.server";
+import { fetchUpstream, tokenFromUpstream } from "@/lib/rick/upstream.server";
 import { allowSpend, clientIp } from "@/lib/rick/spend.server";
 
 const Body = z.object({
@@ -21,10 +22,10 @@ export const Route = createFileRoute("/api/chat")({
     handlers: {
       GET: async () => Response.json({ grok: envGrokReady() }),
       POST: async ({ request }) => {
-        const apiKey = resolveApiKey(request);
-        if (!apiKey) {
+        const motor = resolveMotor(request);
+        if (!motor) {
           return Response.json(
-            { error: "Falta la API key de xAI. Pegala al abrir." },
+            { error: "Falta la API key del motor. Pegala al abrir." },
             { status: 503 },
           );
         }
@@ -59,24 +60,15 @@ export const Route = createFileRoute("/api/chat")({
 
         let upstream: Response;
         try {
-          upstream = await fetch("https://api.x.ai/v1/chat/completions", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${apiKey}`,
-            },
-            body: JSON.stringify({
-              model: "grok-4.5",
-              stream: true,
+          upstream = await fetchUpstream(
+            motor,
+            {
+              system: parsed.data.system.slice(0, 32000),
+              messages: history,
               temperature: parsed.data.temperature ?? 0.8,
-              max_tokens: 800,
-              messages: [
-                { role: "system", content: parsed.data.system.slice(0, 32000) },
-                ...history,
-              ],
-            }),
-            signal: AbortSignal.timeout(28000),
-          });
+            },
+            AbortSignal.timeout(28000),
+          );
         } catch {
           return Response.json(
             { error: "La entidad tardó demasiado. Probá de nuevo." },
@@ -114,16 +106,13 @@ export const Route = createFileRoute("/api/chat")({
                   const data = line.slice(5).trim();
                   if (!data || data === "[DONE]") continue;
                   try {
-                    const event = JSON.parse(data) as {
-                      choices?: { delta?: { content?: string } }[];
-                      model?: string;
-                    };
-                    if (event.model) {
+                    const event = JSON.parse(data) as Record<string, unknown>;
+                    const { token, model } = tokenFromUpstream(motor.kind, event);
+                    if (model) {
                       controller.enqueue(
-                        encoder.encode(`data: ${JSON.stringify({ m: event.model })}\n\n`),
+                        encoder.encode(`data: ${JSON.stringify({ m: model })}\n\n`),
                       );
                     }
-                    const token = event.choices?.[0]?.delta?.content;
                     if (token) {
                       controller.enqueue(
                         encoder.encode(`data: ${JSON.stringify({ t: token })}\n\n`),

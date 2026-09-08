@@ -134,6 +134,7 @@ type RickState = {
   setDiag: (diag: DiagPrev, text: string) => void;
   setFocus: (focus: FocusState | null) => void;
   setMotor: (last: string) => { blocked: boolean; first: boolean };
+  primeMotor: (name: string) => void;
   ackMotor: () => void;
   ackDrift: () => void;
   setDriftBlocked: (v: boolean) => void;
@@ -351,6 +352,11 @@ export const useRick = create<RickState>()(
         }
         set({ motorLast: last, motorBlocked: false });
         return { blocked: false, first: false };
+      },
+      primeMotor: (name) => {
+        const model = name.trim();
+        if (!model) return;
+        set({ motorRef: model, motorLast: model, motorBlocked: false });
       },
       ackMotor: () => set({ motorRef: get().motorLast || get().motorRef, motorBlocked: false }),
       ackDrift: () => set({ driftBlocked: false }),

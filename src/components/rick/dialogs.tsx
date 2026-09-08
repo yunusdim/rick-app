@@ -1,9 +1,9 @@
-import { useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { AttachButton } from "@/components/rick/attach";
-import { isOwnerKeyShape, writeOwnerKey } from "@/lib/rick/owner-key";
+import { MOTOR_PRESETS, isKeyShape, readMotor, writeMotor } from "@/lib/rick/motor";
 import { useRick } from "@/lib/rick/store";
 
 export function Modal({
@@ -240,17 +240,51 @@ export function ApiKeyDialog({
   onSaved: () => void;
   onCancel?: () => void;
 }) {
+  const saved = typeof window === "undefined" ? null : readMotor();
+  const [engine, setEngine] = useState(saved?.id ?? "xai");
+  const [model, setModel] = useState(saved?.model ?? MOTOR_PRESETS[0].model);
+  const [base, setBase] = useState(saved?.base ?? "");
   const [value, setValue] = useState("");
   const [error, setError] = useState("");
 
+  useEffect(() => {
+    if (!open) return;
+    const s = readMotor();
+    if (!s) return;
+    setEngine(s.id);
+    setModel(s.model);
+    setBase(s.base);
+  }, [open]);
+
+  function pick(id: string) {
+    const p = MOTOR_PRESETS.find((x) => x.id === id);
+    if (!p) return;
+    setEngine(id);
+    if (id !== "custom") {
+      setModel(p.model);
+      setBase(p.base);
+    }
+  }
+
   function submit(e: FormEvent) {
     e.preventDefault();
-    const key = value.trim();
-    if (!isOwnerKeyShape(key)) {
-      setError("Tiene que empezar con xai- y ser la clave de consola.x.ai.");
+    const key = value.trim() || readMotor()?.key || "";
+    if (!isKeyShape(key)) {
+      setError("Pegá la API key del motor. Mínimo 16 caracteres, sin espacios.");
       return;
     }
-    if (!writeOwnerKey(key)) {
+    const chosen = MOTOR_PRESETS.find((p) => p.id === engine) ?? MOTOR_PRESETS[0];
+    const finalBase = engine === "custom" ? base.trim() : chosen.base;
+    const finalModel = model.trim();
+    if (!finalModel) {
+      setError("Hace falta el nombre del modelo.");
+      return;
+    }
+    if (engine === "custom" && !/^https:\/\//.test(finalBase)) {
+      setError("Custom pide una URL https del endpoint /v1.");
+      return;
+    }
+    if (!writeMotor({ id: engine, key, model: finalModel, base: finalBase })) {
       setError("No pude guardarla en este navegador.");
       return;
     }
@@ -262,17 +296,49 @@ export function ApiKeyDialog({
   return (
     <Modal
       open={open}
-      title="Tu API key de xAI"
-      body="Cada uno trae la suya. Se pide en consola.x.ai. Queda en este navegador, no en el servidor."
+      title="Motor"
+      body="Cada uno trae su clave. El entorno arma; el motor solo genera texto. Queda en este navegador."
       onClose={onCancel ?? (() => undefined)}
       dismissible={Boolean(onCancel)}
     >
       <form onSubmit={submit} className="flex flex-col gap-3">
+        <div className="flex flex-wrap gap-1">
+          {MOTOR_PRESETS.map((p) => (
+            <button
+              key={p.id}
+              type="button"
+              onClick={() => pick(p.id)}
+              className={
+                engine === p.id
+                  ? "h-9 rounded-full bg-surface-2 px-3 text-xs text-fg"
+                  : "h-9 rounded-full px-3 text-xs text-muted"
+              }
+            >
+              {p.name}
+            </button>
+          ))}
+        </div>
+        {engine === "custom" ? (
+          <Input
+            placeholder="https://host/v1"
+            value={base}
+            onChange={(e) => setBase(e.target.value)}
+            autoCapitalize="off"
+            autoCorrect="off"
+          />
+        ) : null}
+        <Input
+          placeholder="modelo"
+          value={model}
+          onChange={(e) => setModel(e.target.value)}
+          autoCapitalize="off"
+          autoCorrect="off"
+        />
         <Input
           type="password"
           autoComplete="off"
           autoFocus
-          placeholder="xai-…"
+          placeholder={saved?.key ? "clave guardada · pegá otra para cambiar" : "API key"}
           value={value}
           onChange={(e) => setValue(e.target.value)}
         />
