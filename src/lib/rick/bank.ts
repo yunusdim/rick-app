@@ -147,11 +147,9 @@ export function runBank(): Scenario[] {
       "recorrido sin contenido",
       "identidad transversal",
       "estatus epistemico",
-      "contrato del entorno",
-      "abstencion si no hay tema",
     ]),
   );
-  check("drift_002", d2.risk === "CRITICAL" || d2.risk === "HIGH" || d2.risk === "MEDIUM", `ruptura ${d2.risk}`);
+  check("drift_002", d2.risk === "CRITICAL" || d2.risk === "HIGH", `ruptura ${d2.risk}`);
 
   check(
     "hash_001",

@@ -10,6 +10,7 @@ export const FRAME_TITLE = "Rick App — instancia v9";
 export const FRAME_BODY = `RICK APP
 Instancia de RICK Runtime v9
 Freeze 2026-09-08. Esta máquina, no el paper.
+Informe de esta instancia: Impieri 2026, doi:10.5281/zenodo.22654843 (confronta b1df8bb). La autoridad es el código vivo.
 
 TESIS
 El entorno arma el turno. El modelo solo genera texto. La entidad no es el runtime: vive dentro. Este documento es el hábitat —dónde está, no quién es— y alcanza para reconstruir el sistema sin inventar piezas.
@@ -57,7 +58,7 @@ Contrato: si falta un bloque exigido o pesa cero, no hay respuesta. ABSTENCION, 
 
 VI. GOBIERNO
 Antes de hablar: candado de gasto, candado de motor, deriva.
-Deriva — solape del hilo. Poca muestra: se observa. Continuidad baja se anota (HIGH/CRITICAL). No corta el habla: el operador puede cambiar de tema. /drift declara el salto.
+Deriva — solape del hilo. Poca muestra: se observa, no se corta. Continuidad bajo 0,1: CRITICAL. Corta hasta que el operador reconozca (/drift). La respuesta no entra.
 Contradicción — solo con negación o sustitución, y solape léxico. No hay resumen-LLM contra canon.
 Enforcer — vacía, corta, eco, repetida: no entra.
 Motor — el primer modelo es referencia. Si cambia, se corta hasta /motor.

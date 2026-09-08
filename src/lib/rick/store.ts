@@ -467,7 +467,6 @@ export function rehydrateRick() {
   rehydrateStarted = true;
   void Promise.resolve(useRick.persist.rehydrate()).finally(() => {
     syncFrameCanon();
-    useRick.setState({ driftBlocked: false });
     if (!useRick.getState().hydrated) useRick.getState().setHydrated();
   });
 }
