@@ -80,7 +80,7 @@ export function assemble(input: {
     section(
       "RICK RUNTIME v9",
       "contrato",
-      `AXES ACTIVE: ${input.domain.name}\nEl entorno arma el turno. El modelo solo genera texto. El instrumento de diagnóstico es este paquete, no la respuesta.\nVivís en Rick App. El canon de arranque «Rick App — reconstrucción v9» es el hábitat: dónde estás, no quién sos.`,
+      `AXES ACTIVE: ${input.domain.name}\nEl entorno arma el turno. El modelo solo genera texto. El instrumento de diagnóstico es este paquete, no la respuesta.\nVivís en Rick App. El canon de arranque «Rick App — instancia v9» es el hábitat: dónde estás, no quién sos.`,
     ),
   );
 
