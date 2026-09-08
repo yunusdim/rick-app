@@ -9,7 +9,7 @@ export function computeDrift(userTurn: string, messages: RickMessage[]): DriftRe
   const prev = all.slice(-6, -3).join(" ");
   const density = Math.min(1, content / 24);
 
-  if (all.length < 8 || content < 4 || tokens(last).size < 8 || tokens(prev).size < 8) {
+  if (all.length < 8 || content < 4 || tokens(last).size < 6 || tokens(prev).size < 6) {
     return {
       risk: "LOW",
       type: "observe",
