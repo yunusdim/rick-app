@@ -489,7 +489,7 @@ export function RickApp() {
         if (aborted) {
           const cut = assembledText.trim() || "Se cortó. Probá de nuevo.";
           patchMessage(assistantId, cut);
-          if (!assembledText.trim()) toast.error("Grok tardó demasiado.");
+          if (!assembledText.trim()) toast.error("La entidad tardó demasiado.");
         } else {
           const message = err instanceof Error ? err.message : "Algo falló.";
           patchMessage(assistantId, assembledText.trim() || message);
@@ -640,8 +640,22 @@ export function RickApp() {
       setForgetOpen(true);
       return true;
     }
-    if (key === "grok" || key === "espejo" || key === "acido" || key === "3am" || key === "night") {
-      const id = (key === "3am" ? "night" : key) as PersonaId;
+    if (
+      key === "grok" ||
+      key === "rick" ||
+      key === "entidad" ||
+      key === "espejo" ||
+      key === "acido" ||
+      key === "3am" ||
+      key === "night"
+    ) {
+      const id = (
+        key === "3am" || key === "night"
+          ? "night"
+          : key === "rick" || key === "entidad" || key === "grok"
+            ? "grok"
+            : key
+      ) as PersonaId;
       setVoice(id);
       toast(`Voz: ${PERSONAS[id].name}`);
       return true;
@@ -745,7 +759,7 @@ export function RickApp() {
                 </Button>
               </Tooltip>
             ) : null}
-            <Tooltip content={locked ? "Candado puesto — Grok no gasta" : "Candado de gasto"}>
+            <Tooltip content={locked ? "Candado puesto — la entidad no gasta" : "Candado de gasto"}>
               <Button
                 variant="ghost"
                 size="iconSm"
@@ -998,7 +1012,7 @@ function MesaThread({
               ? "Mesa es eje casa: podés estar. Anti-invención de hechos se conserva."
               : "Eje de trabajo: modo fáctico salvo verbo generativo. Canon entra entero."}{" "}
           {!awaitingIdentity
-            ? `Trece secciones. CONTEXTO 2 vuelve. /olvidar pide confirmación.${locked ? " Candado puesto: Grok no gasta hasta desbloquear." : ""}`
+            ? `Trece secciones. CONTEXTO 2 vuelve. /olvidar pide confirmación.${locked ? " Candado puesto: la entidad no gasta hasta desbloquear." : ""}`
             : null}
         </p>
       </div>
@@ -1109,7 +1123,7 @@ function Composer({
         />
         <div className="flex items-center justify-between px-1 pb-1">
           <p className="text-xs text-subtle">
-            {locked ? "Grok no gasta" : listening ? "Te escucho…" : "Clip = tema al canon · Enter envía"}
+            {locked ? "La entidad no gasta" : listening ? "Te escucho…" : "Clip = tema al canon · Enter envía"}
           </p>
           <div className="flex gap-1">
             <AttachButton domainId={domainId} kind="canon" iconOnly label="Adjuntar tema al canon" />

@@ -16,14 +16,14 @@ export type Persona = {
 export const PERSONAS: Record<PersonaId, Persona> = {
   grok: {
     id: "grok",
-    name: "Grok",
+    name: "Rick",
     seat: "La mesa",
     tagline: "El original, sin filtro",
     hint: "Ingenioso, directo, un poco insolente.",
-    welcome: "Grok. Sin pose. Preguntá.",
+    welcome: "Rick. Sin pose. Preguntá.",
     voiceId: "eve",
     temperature: 0.85,
-    system: `Modo Grok: ingenioso, directo, un poco insolente, curioso. Sin servilismo. Español rioplatense salvo otro idioma del usuario. 1–3 párrafos. No sos el entorno de Rick App.`,
+    system: `Modo Rick: ingenioso, directo, un poco insolente, curioso. Sin servilismo. Español rioplatense salvo otro idioma del usuario. 1–3 párrafos. No sos el entorno de Rick App.`,
   },
   espejo: {
     id: "espejo",

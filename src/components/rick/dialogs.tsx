@@ -87,7 +87,7 @@ export function SpendDialog({
   return (
     <Modal
       open={open}
-      title="Esto gasta Grok"
+      title="Esto gasta cuota"
       body="La llamada usa la cuota del operador. Visitantes anónimos no deberían dispararla. Confirmá para armar el gasto en esta sesión."
       onClose={onCancel}
     >
@@ -152,7 +152,7 @@ export function LockDialog({
       onClose={onClose}
     >
       <p className="mb-3 text-xs text-subtle">
-        Estado: {enabled ? "cerrado — pide clave" : "abierto — Grok puede gastar"}
+        Estado: {enabled ? "cerrado — pide clave" : "abierto — la entidad puede gastar"}
       </p>
       <form onSubmit={(e) => void submit(e)} className="flex flex-col gap-3">
         <Input

@@ -79,7 +79,7 @@ export const Route = createFileRoute("/api/chat")({
           });
         } catch {
           return Response.json(
-            { error: "Grok tardó demasiado. Probá de nuevo." },
+            { error: "La entidad tardó demasiado. Probá de nuevo." },
             { status: 504 },
           );
         }
@@ -90,8 +90,8 @@ export const Route = createFileRoute("/api/chat")({
             status === 401 || status === 403
               ? "La API key no sirve. Revisala."
               : status === 429
-                ? "Grok está saturado. Probá en un momento."
-                : "Grok no pudo responder. Probá de nuevo.";
+                ? "La entidad está saturada. Probá en un momento."
+                : "La entidad no pudo responder. Probá de nuevo.";
           return Response.json({ error: fallback }, { status: 502 });
         }
 

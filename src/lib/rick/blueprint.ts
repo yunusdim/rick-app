@@ -16,7 +16,7 @@ No es RICK Runtime. Comparte física del freeze 2026-09-06: trece bloques, estat
 
 1. ARRANQUE
 Orden fijo:
-1) API key. GET /api/chat → { grok }. Si grok=false y no hay clave en localStorage "rick-xai-owner-key", modal bloqueante. Forma: xai- + 20–200 [A-Za-z0-9_-]. Se manda en header X-Rick-Key. process.env.XAI_API_KEY gana si existe. No se pide en el chat de Grok Build.
+1) API key. GET /api/chat → { grok }. Si grok=false y no hay clave en localStorage "rick-xai-owner-key", modal bloqueante. Forma: xai- + 20–200 [A-Za-z0-9_-]. Se manda en header X-Rick-Key. process.env.XAI_API_KEY gana si existe. No se pide en el chat de construcción de la app.
 2) Identidad. Si grok listo y identity vacío (post-hydrate), modal ¿Quién sos? Pegar o adjuntar. Mínimo 8 caracteres. Es personalidad global, no tema.
 Después, Mesa.
 
@@ -78,13 +78,13 @@ formatDiag arma CONTEXTO 2 del turno siguiente.
 assemblyHistory guarda el paquete.
 
 7. VOCES
-grok 0.85 eve · espejo 0.90 orion · acido 0.95 rex · night 0.70 luna (alias /3am).
+Rick (id interno grok) 0.85 eve · espejo 0.90 orion · acido 0.95 rex · night 0.70 luna (alias /3am).
 Modelo chat: grok-4.5. max_tokens 800. stream. Cliente abort 40s. Upstream 28s.
 TTS POST /api/speak text≤900 timeout 20s.
 Tope spend.server por IP: chat 16 / speak 8 en 10 min (memoria del proceso).
 
 8. COMANDOS
-/grabar /parar|/stop /agenda /canon /inspeccionar|/inspect|/paquete /grabaciones|/cintas /candado /recorrido /remember|/recordar /vce /banco /focus|/foco [set|clear|limpiar] /motor [ack|acknowledge] /drift /restaurar /olvidar /grok /espejo /acido /3am|/night.
+/grabar /parar|/stop /agenda /canon /inspeccionar|/inspect|/paquete /grabaciones|/cintas /candado /recorrido /remember|/recordar /vce /banco /focus|/foco [set|clear|limpiar] /motor [ack|acknowledge] /drift /restaurar /olvidar /rick|/entidad|/grok /espejo /acido /3am|/night.
 /olvidar abre confirmación. forgetActive: borra messages del eje activo, borra summary de ese eje, lastAssembled=null, backup {id,domainId,domainName,at,messages} en backups. No toca canon, identity, docs, events, otros ejes. /restaurar usa backups[0].
 
 9. VISTAS
