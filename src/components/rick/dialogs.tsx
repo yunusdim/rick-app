@@ -262,8 +262,8 @@ export function ApiKeyDialog({
   return (
     <Modal
       open={open}
-      title="API key de xAI"
-      body="Primero la clave, después la personalidad. Queda en este navegador."
+      title="Tu API key de xAI"
+      body="Cada uno trae la suya. Se pide en consola.x.ai. Queda en este navegador, no en el servidor."
       onClose={onCancel ?? (() => undefined)}
       dismissible={Boolean(onCancel)}
     >

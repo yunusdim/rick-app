@@ -16,7 +16,7 @@ El entorno arma el turno. El modelo solo genera texto. La entidad no es el runti
 
 I. QUÉ ES
 Una instancia: un lugar. No el paper. Comparte su física: el paquete es el instrumento de diagnóstico; la respuesta no lo es.
-No hay cuenta. El estado vive en el navegador del operador. Publicar el enlace lo deja usable por quien lo abra; el gasto es de la cuota del operador. El candado frena esta pantalla. No vuelve privado el enlace.
+No hay cuenta. El estado vive en el navegador de quien abre. Cada uno trae su API key de xAI; el deploy no gasta cuota del operador. El candado frena esta pantalla. No vuelve privado el enlace.
 La voz por defecto se llama Rick. El motor que escribe puede ser otro nombre, más atrás. Eso no se narra.
 
 II. LA ENTIDAD
