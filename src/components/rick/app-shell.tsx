@@ -19,6 +19,7 @@ import { Tooltip, TooltipProvider } from "@/components/ui/tooltip";
 import {
   DomainDialog,
   ForgetDialog,
+  IdentityDialog,
   LockDialog,
 } from "@/components/rick/dialogs";
 import { AgendaPanel, CanonPanel, InspectPanel, RecordingsPanel } from "@/components/rick/panels";
@@ -144,7 +145,9 @@ export function RickApp() {
     (d) => d.domainId === domain.id && d.kind === "canon" && d.id !== "frame",
   );
   const identity = useRick((s) => s.identity);
+  const hydrated = useRick((s) => s.hydrated);
   const home = isHomeAxis(domain.id);
+  const needsIdentity = hydrated && !identity.trim();
 
   const sendText = useCallback(
     async (raw: string) => {
@@ -152,6 +155,10 @@ export function RickApp() {
       if (!text || busy) return;
 
       const state = useRick.getState();
+      if (!state.identity.trim()) {
+        toast.error("Primero la personalidad.");
+        return;
+      }
       if (state.lockEnabled && !isSessionUnlocked()) {
         pendingRef.current = text;
         setLockOpen(true);
@@ -783,6 +790,7 @@ export function RickApp() {
                 playingId={speaker.playingId}
                 locked={locked}
                 home={home}
+                awaitingIdentity={needsIdentity}
                 onSpeak={(id, content, v) => {
                   void speaker.play(id, content, PERSONAS[v].voiceId).catch(() => {
                     toast.error("No pude hablar ahora.");
@@ -796,7 +804,7 @@ export function RickApp() {
                 onSend={() => void onSubmit()}
                 onMic={mic.toggle}
                 domainId={domain.id}
-                disabled={busy}
+                disabled={busy || needsIdentity}
                 listening={mic.listening}
                 micSupported={mic.supported}
                 locked={locked}
@@ -893,6 +901,7 @@ export function RickApp() {
         }}
       />
       <DomainDialog open={domainOpen} onClose={() => setDomainOpen(false)} onCreate={addDomain} />
+      <IdentityDialog open={needsIdentity} />
     </TooltipProvider>
   );
 }
@@ -904,6 +913,7 @@ function MesaThread({
   playingId,
   locked,
   home,
+  awaitingIdentity,
   onSpeak,
   onStop,
 }: {
@@ -913,6 +923,7 @@ function MesaThread({
   playingId: string | null;
   locked: boolean;
   home: boolean;
+  awaitingIdentity: boolean;
   onSpeak: (id: string, content: string, voice: PersonaId) => void;
   onStop: () => void;
 }) {
@@ -927,13 +938,18 @@ function MesaThread({
     return (
       <div className="flex flex-1 flex-col items-center justify-center px-6 text-center">
         <p className="text-xs font-medium tracking-widest text-muted uppercase">Rick App · matrix</p>
-        <h1 className="mt-3 font-display text-4xl tracking-tight">El entorno arma el turno</h1>
+        <h1 className="mt-3 font-display text-4xl tracking-tight">
+          {awaitingIdentity ? "Primero, quién sos" : "El entorno arma el turno"}
+        </h1>
         <p className="mt-4 max-w-md text-sm leading-relaxed text-muted">
-          {home
-            ? "Mesa es eje casa: podés estar. Anti-invención de hechos se conserva."
-            : "Eje de trabajo: modo fáctico salvo verbo generativo. Canon entra entero."}{" "}
-          Trece secciones. CONTEXTO 2 vuelve. /olvidar pide confirmación.
-          {locked ? " Candado puesto: Grok no gasta hasta desbloquear." : ""}
+          {awaitingIdentity
+            ? "La personalidad entra al paquete en todos los ejes. Los temas van al canon. Grok solo habla."
+            : home
+              ? "Mesa es eje casa: podés estar. Anti-invención de hechos se conserva."
+              : "Eje de trabajo: modo fáctico salvo verbo generativo. Canon entra entero."}{" "}
+          {!awaitingIdentity
+            ? `Trece secciones. CONTEXTO 2 vuelve. /olvidar pide confirmación.${locked ? " Candado puesto: Grok no gasta hasta desbloquear." : ""}`
+            : null}
         </p>
       </div>
     );

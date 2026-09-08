@@ -1,6 +1,9 @@
 import { useState, type FormEvent, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { AttachButton } from "@/components/rick/attach";
+import { useRick } from "@/lib/rick/store";
 
 export function Modal({
   open,
@@ -8,19 +11,21 @@ export function Modal({
   body,
   children,
   onClose,
+  dismissible = true,
 }: {
   open: boolean;
   title: string;
   body?: string;
   children: ReactNode;
   onClose: () => void;
+  dismissible?: boolean;
 }) {
   if (!open) return null;
   return (
     <div
       className="fixed inset-0 z-50 flex items-end justify-center bg-bg/75 p-4 sm:items-center"
       role="presentation"
-      onClick={onClose}
+      onClick={dismissible ? onClose : undefined}
     >
       <div
         role="dialog"
@@ -219,6 +224,50 @@ export function DomainDialog({
             Cancelar
           </Button>
           <Button type="submit">Crear</Button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+export function IdentityDialog({ open }: { open: boolean }) {
+  const setIdentity = useRick((s) => s.setIdentity);
+  const [draft, setDraft] = useState("");
+  const [error, setError] = useState("");
+
+  function submit(e: FormEvent) {
+    e.preventDefault();
+    const text = draft.trim();
+    if (text.length < 8) {
+      setError("Pegá o adjuntá quién es. Mínimo unas líneas.");
+      return;
+    }
+    setIdentity(text);
+    setDraft("");
+    setError("");
+  }
+
+  return (
+    <Modal
+      open={open}
+      title="¿Quién sos?"
+      body="Antes de hablar, la personalidad. No es un tema de la mesa: es identidad, y va con Rick a todos los ejes."
+      onClose={() => undefined}
+      dismissible={false}
+    >
+      <form onSubmit={submit} className="flex flex-col gap-3">
+        <Textarea
+          rows={7}
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          placeholder="Pegá el texto de la personalidad."
+          autoFocus
+          className="min-h-32 rounded-md bg-surface-2 px-3 py-2 text-sm"
+        />
+        {error ? <p className="text-xs text-danger">{error}</p> : null}
+        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <AttachButton domainId="mesa" kind="identity" label="Adjuntar archivo" />
+          <Button type="submit">Entrar</Button>
         </div>
       </form>
     </Modal>
