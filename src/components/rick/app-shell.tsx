@@ -145,18 +145,27 @@ export function RickApp() {
 
   useEffect(() => {
     const vv = window.visualViewport;
-    if (!vv) return;
-    const sync = () => {
-      const kb = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
-      document.documentElement.style.setProperty("--kb", `${Math.round(kb)}px`);
+    const root = document.documentElement;
+    const pin = () => {
+      window.scrollTo(0, 0);
+      if (!vv) {
+        root.style.setProperty("--vv-top", "0px");
+        root.style.setProperty("--vv-h", `${window.innerHeight}px`);
+        return;
+      }
+      root.style.setProperty("--vv-top", `${Math.round(vv.offsetTop)}px`);
+      root.style.setProperty("--vv-h", `${Math.round(vv.height)}px`);
     };
-    vv.addEventListener("resize", sync);
-    vv.addEventListener("scroll", sync);
-    sync();
+    pin();
+    vv?.addEventListener("resize", pin);
+    vv?.addEventListener("scroll", pin);
+    window.addEventListener("orientationchange", pin);
     return () => {
-      vv.removeEventListener("resize", sync);
-      vv.removeEventListener("scroll", sync);
-      document.documentElement.style.removeProperty("--kb");
+      vv?.removeEventListener("resize", pin);
+      vv?.removeEventListener("scroll", pin);
+      window.removeEventListener("orientationchange", pin);
+      root.style.removeProperty("--vv-top");
+      root.style.removeProperty("--vv-h");
     };
   }, []);
 
@@ -691,7 +700,7 @@ export function RickApp() {
 
   return (
     <TooltipProvider>
-      <div className="flex h-dvh overflow-hidden bg-bg text-fg">
+      <div className="rick-shell flex bg-bg text-fg">
         <aside className="hidden w-60 shrink-0 flex-col border-r border-line lg:flex">
           <div className="px-4 pt-5 pb-3">
             <p className="font-display text-xl tracking-tight">Rick App</p>
@@ -1119,7 +1128,9 @@ function Composer({
           disabled={disabled}
           placeholder={locked ? "Candado puesto — /candado para desbloquear" : "Mensaje, /olvidar, o adjuntá un tema"}
           aria-label="Mensaje"
-          className="max-h-40 min-h-11 text-sm md:text-base"
+          className="max-h-40 min-h-11 text-base"
+          enterKeyHint="send"
+          onFocus={() => window.scrollTo(0, 0)}
         />
         <div className="flex items-center justify-between px-1 pb-1">
           <p className="text-xs text-subtle">

@@ -34,10 +34,15 @@
     -moz-osx-font-smoothing: grayscale;
     background: var(--color-bg);
     color: var(--color-fg);
+    height: 100%;
+    overflow: hidden;
+    overscroll-behavior: none;
   }
 
   body {
-    min-height: 100dvh;
+    height: 100%;
+    overflow: hidden;
+    overscroll-behavior: none;
     background-color: var(--color-bg);
     background-image: repeating-linear-gradient(
       to bottom,
@@ -92,9 +97,17 @@
   background: var(--color-accent);
 }
 
+.rick-shell {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: var(--vv-top, 0px);
+  height: var(--vv-h, 100dvh);
+  overflow: hidden;
+}
+
 .safe-composer {
   padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
-  transform: translateY(calc(-1 * var(--kb, 0px)));
 }
 
 .rec-dot {
