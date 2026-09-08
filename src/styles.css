@@ -98,16 +98,14 @@
 }
 
 .rick-shell {
-  position: fixed;
-  left: 0;
-  right: 0;
-  top: var(--vv-top, 0px);
-  height: var(--vv-h, 100dvh);
+  height: 100%;
+  max-height: 100%;
   overflow: hidden;
 }
 
 .safe-composer {
-  padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+  flex-shrink: 0;
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom, 0px));
 }
 
 .rec-dot {

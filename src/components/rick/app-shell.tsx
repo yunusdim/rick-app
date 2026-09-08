@@ -51,6 +51,7 @@ import { overlap } from "@/lib/rick/tokens";
 import type { ViewId } from "@/lib/rick/types";
 import { computeVce } from "@/lib/rick/vce";
 import { cn, uid } from "@/lib/utils";
+import { watchKeyboard } from "@/lib/rick/keyboard";
 import { readOwnerKey } from "@/lib/rick/owner-key";
 
 const NAV: { id: ViewId; label: string; icon: typeof FileText }[] = [
@@ -113,6 +114,7 @@ export function RickApp() {
   const [serverGrok, setServerGrok] = useState<boolean | null>(null);
   const [hasOwnerKey, setHasOwnerKey] = useState(false);
   const [keyOpen, setKeyOpen] = useState(false);
+  const [kb, setKb] = useState(0);
   const pendingRef = useRef<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const liveRef = useRef("");
@@ -143,31 +145,7 @@ export function RickApp() {
     setUnlocked(isSessionUnlocked());
   }, [lockEnabled]);
 
-  useEffect(() => {
-    const vv = window.visualViewport;
-    const root = document.documentElement;
-    const pin = () => {
-      window.scrollTo(0, 0);
-      if (!vv) {
-        root.style.setProperty("--vv-top", "0px");
-        root.style.setProperty("--vv-h", `${window.innerHeight}px`);
-        return;
-      }
-      root.style.setProperty("--vv-top", `${Math.round(vv.offsetTop)}px`);
-      root.style.setProperty("--vv-h", `${Math.round(vv.height)}px`);
-    };
-    pin();
-    vv?.addEventListener("resize", pin);
-    vv?.addEventListener("scroll", pin);
-    window.addEventListener("orientationchange", pin);
-    return () => {
-      vv?.removeEventListener("resize", pin);
-      vv?.removeEventListener("scroll", pin);
-      window.removeEventListener("orientationchange", pin);
-      root.style.removeProperty("--vv-top");
-      root.style.removeProperty("--vv-h");
-    };
-  }, []);
+  useEffect(() => watchKeyboard(setKb), []);
 
   const thread = messages.filter((m) => m.domainId === domain.id);
   const locked = lockEnabled && !unlocked;
@@ -700,7 +678,7 @@ export function RickApp() {
 
   return (
     <TooltipProvider>
-      <div className="rick-shell flex bg-bg text-fg">
+      <div className="rick-shell flex h-full bg-bg text-fg">
         <aside className="hidden w-60 shrink-0 flex-col border-r border-line lg:flex">
           <div className="px-4 pt-5 pb-3">
             <p className="font-display text-xl tracking-tight">Rick App</p>
@@ -872,6 +850,7 @@ export function RickApp() {
                 listening={mic.listening}
                 micSupported={mic.supported}
                 locked={locked}
+                kb={kb}
               />
             </DropCanvas>
           ) : null}
@@ -1084,6 +1063,7 @@ function Composer({
   listening,
   micSupported,
   locked,
+  kb,
 }: {
   value: string;
   onChange: (v: string) => void;
@@ -1094,6 +1074,7 @@ function Composer({
   listening: boolean;
   micSupported: boolean;
   locked: boolean;
+  kb: number;
 }) {
   const ref = useRef<HTMLTextAreaElement>(null);
   useEffect(() => {
@@ -1117,7 +1098,11 @@ function Composer({
   }
 
   return (
-    <form onSubmit={submit} className="safe-composer px-3 md:px-5">
+    <form
+      onSubmit={submit}
+      className="safe-composer px-3 md:px-5"
+      style={{ paddingBottom: `calc(${kb}px + max(0.75rem, env(safe-area-inset-bottom, 0px)))` }}
+    >
       <div className="mx-auto w-full max-w-2xl rounded-xl bg-surface p-2 pl-3 shadow-[var(--shadow-border)]">
         <Textarea
           ref={ref}

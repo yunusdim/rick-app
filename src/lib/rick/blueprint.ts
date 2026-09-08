@@ -89,7 +89,7 @@ Tope spend.server por IP: chat 16 / speak 8 en 10 min (memoria del proceso).
 
 9. VISTAS
 mesa · agenda · grabaciones · canon · inspect.
-Composer: Enter envía, Shift+Enter newline. Clip = tema al canon. Shell = visualViewport (--vv-h, --vv-top). Input 16px.
+Composer: Enter envía, Shift+Enter newline. Clip = tema al canon. Teclado: --kb por VirtualKeyboard o visualViewport. Input 16px.
 
 10. LÍMITES EXACTOS
 CANON_WARN 0.4 · CANON_BLOCK 0.8 · SESSION_WINDOW 10 · SESSION_INJECT_WINDOW 5 · SUMMARY_KEEP 5 · HAND_WINDOW 8 · ENTITY_MAX_BYTES 20000
