@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 import { resolveMotor } from "@/lib/rick/resolve-key.server";
+import { fetchTts } from "@/lib/rick/upstream.server";
 import { allowSpend, clientIp } from "@/lib/rick/spend.server";
 
 const Body = z.object({
@@ -17,12 +18,6 @@ export const Route = createFileRoute("/api/speak")({
           return Response.json(
             { error: "Falta la API key del motor. Pegala al abrir." },
             { status: 503 },
-          );
-        }
-        if (motor.engine !== "xai") {
-          return Response.json(
-            { error: "La voz solo está en xAI. El chat sí puede ser otro motor." },
-            { status: 400 },
           );
         }
 
@@ -52,19 +47,11 @@ export const Route = createFileRoute("/api/speak")({
 
         let upstream: Response;
         try {
-          upstream = await fetch("https://api.x.ai/v1/tts", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${motor.key}`,
-            },
-            body: JSON.stringify({
-              text,
-              voice_id: parsed.data.voiceId,
-              language: "auto",
-            }),
-            signal: AbortSignal.timeout(20000),
-          });
+          upstream = await fetchTts(
+            motor,
+            { text, voiceId: parsed.data.voiceId },
+            AbortSignal.timeout(20000),
+          );
         } catch {
           return Response.json(
             { error: "La voz tardó demasiado. Probá de nuevo." },
@@ -72,10 +59,23 @@ export const Route = createFileRoute("/api/speak")({
           );
         }
 
+        if (upstream.headers.get("content-type")?.includes("application/json") && !upstream.ok) {
+          try {
+            const body = (await upstream.json()) as { error?: string };
+            if (body.error) return Response.json({ error: body.error }, { status: upstream.status });
+          } catch {
+            /* fall through */
+          }
+        }
+
         if (!upstream.ok) {
           const bad = upstream.status === 401 || upstream.status === 403;
           return Response.json(
-            { error: bad ? "La API key no sirve. Revisala." : "No pude generar la voz. Probá de nuevo." },
+            {
+              error: bad
+                ? "La API key no sirve. Revisala."
+                : "Este motor no devolvió voz. El chat sí puede.",
+            },
             { status: 502 },
           );
         }

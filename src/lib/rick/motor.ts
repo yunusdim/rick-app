@@ -1,4 +1,5 @@
 export type MotorKind = "openai" | "anthropic";
+export type TtsKind = "xai" | "openai" | "groq" | "none";
 
 export type MotorPreset = {
   id: string;
@@ -6,17 +7,18 @@ export type MotorPreset = {
   base: string;
   model: string;
   kind: MotorKind;
+  tts: TtsKind;
 };
 
 export const MOTOR_PRESETS: MotorPreset[] = [
-  { id: "xai", name: "xAI", base: "https://api.x.ai/v1", model: "grok-4.5", kind: "openai" },
-  { id: "openai", name: "OpenAI", base: "https://api.openai.com/v1", model: "gpt-4.1", kind: "openai" },
-  { id: "anthropic", name: "Anthropic", base: "https://api.anthropic.com/v1", model: "claude-sonnet-4-5", kind: "anthropic" },
-  { id: "openrouter", name: "OpenRouter", base: "https://openrouter.ai/api/v1", model: "openrouter/auto", kind: "openai" },
-  { id: "groq", name: "Groq", base: "https://api.groq.com/openai/v1", model: "llama-3.3-70b-versatile", kind: "openai" },
-  { id: "mistral", name: "Mistral", base: "https://api.mistral.ai/v1", model: "mistral-large-latest", kind: "openai" },
-  { id: "gemini", name: "Gemini", base: "https://generativelanguage.googleapis.com/v1beta/openai", model: "gemini-2.5-flash", kind: "openai" },
-  { id: "custom", name: "Custom", base: "", model: "", kind: "openai" },
+  { id: "xai", name: "xAI", base: "https://api.x.ai/v1", model: "grok-4.5", kind: "openai", tts: "xai" },
+  { id: "openai", name: "OpenAI", base: "https://api.openai.com/v1", model: "gpt-4.1", kind: "openai", tts: "openai" },
+  { id: "anthropic", name: "Anthropic", base: "https://api.anthropic.com/v1", model: "claude-sonnet-4-5", kind: "anthropic", tts: "none" },
+  { id: "openrouter", name: "OpenRouter", base: "https://openrouter.ai/api/v1", model: "openrouter/auto", kind: "openai", tts: "openai" },
+  { id: "groq", name: "Groq", base: "https://api.groq.com/openai/v1", model: "llama-3.3-70b-versatile", kind: "openai", tts: "groq" },
+  { id: "mistral", name: "Mistral", base: "https://api.mistral.ai/v1", model: "mistral-large-latest", kind: "openai", tts: "none" },
+  { id: "gemini", name: "Gemini", base: "https://generativelanguage.googleapis.com/v1beta/openai", model: "gemini-2.5-flash", kind: "openai", tts: "none" },
+  { id: "custom", name: "Custom", base: "", model: "", kind: "openai", tts: "openai" },
 ];
 
 export type MotorSaved = {

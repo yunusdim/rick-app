@@ -17,7 +17,7 @@ El entorno arma el turno. El modelo solo genera texto. La entidad no es el runti
 I. QUÉ ES
 Una instancia: un lugar. No el paper. Comparte su física: el paquete es el instrumento de diagnóstico; la respuesta no lo es.
 No hay cuenta. El estado vive en el navegador de quien abre. Cada uno trae la API key de su motor (xAI, OpenAI, Anthropic, OpenRouter, Groq, Mistral, Gemini o un endpoint /v1 propio). El deploy no gasta cuota del operador. El candado frena esta pantalla. No vuelve privado el enlace.
-La voz por defecto se llama Rick. El motor que escribe puede ser otro nombre, más atrás. La voz hablada (TTS) solo está en xAI. Eso no se narra.
+La voz por defecto se llama Rick. El motor que escribe puede ser otro nombre, más atrás. Escuchar usa el TTS de ese motor si lo tiene (xAI, OpenAI, Groq, OpenRouter, custom /audio/speech). Anthropic, Mistral y Gemini no tienen voz. Eso no se narra.
 
 II. LA ENTIDAD
 Quién es lo escribe el operador, una vez, al comienzo, después de la clave. Es identidad: transversal a todos los ejes. No es un tema. No es canon. Si falta, el sistema no propone contenido.

@@ -72,3 +72,73 @@ export function tokenFromUpstream(kind: ResolvedMotor["kind"], event: Record<str
     token: choices?.[0]?.delta?.content,
   };
 }
+
+const OPENAI_VOICE: Record<string, string> = {
+  eve: "nova",
+  orion: "onyx",
+  rex: "echo",
+  luna: "shimmer",
+};
+
+const GROQ_VOICE: Record<string, string> = {
+  eve: "Arista-PlayAI",
+  orion: "Mason-PlayAI",
+  rex: "Thunder-PlayAI",
+  luna: "Cheyenne-PlayAI",
+};
+
+export async function fetchTts(
+  motor: ResolvedMotor,
+  input: { text: string; voiceId: string },
+  signal: AbortSignal,
+): Promise<Response> {
+  if (motor.tts === "none") {
+    return new Response(JSON.stringify({ error: "Este motor no tiene voz. El chat sí." }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  if (motor.tts === "xai") {
+    return fetch(`${motor.base}/tts`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${motor.key}`,
+      },
+      body: JSON.stringify({
+        text: input.text,
+        voice_id: input.voiceId,
+        language: "auto",
+      }),
+      signal,
+    });
+  }
+
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${motor.key}`,
+  };
+  if (motor.engine === "openrouter") {
+    headers["HTTP-Referer"] = "https://github.com/yunusdim/rick-app";
+    headers["X-Title"] = "Rick App";
+  }
+
+  const voice =
+    motor.tts === "groq"
+      ? GROQ_VOICE[input.voiceId] ?? "Arista-PlayAI"
+      : OPENAI_VOICE[input.voiceId] ?? "nova";
+  const model = motor.tts === "groq" ? "playai-tts" : "tts-1";
+
+  return fetch(`${motor.base}/audio/speech`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      model,
+      input: input.text,
+      voice,
+    }),
+    signal,
+  });
+}
+

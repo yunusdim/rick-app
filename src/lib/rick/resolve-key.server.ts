@@ -1,4 +1,4 @@
-import { MOTOR_PRESETS, type MotorKind } from "@/lib/rick/motor";
+import { MOTOR_PRESETS, type MotorKind, type TtsKind } from "@/lib/rick/motor";
 
 export function envGrokReady(): boolean {
   return false;
@@ -10,6 +10,7 @@ export type ResolvedMotor = {
   model: string;
   kind: MotorKind;
   engine: string;
+  tts: TtsKind;
 };
 
 const ALLOW = new Set(MOTOR_PRESETS.filter((p) => p.base).map((p) => new URL(p.base).hostname));
@@ -62,5 +63,5 @@ export function resolveMotor(request: Request): ResolvedMotor | null {
   const preset = MOTOR_PRESETS.find((p) => p.id === engine);
   const finalModel = model || preset?.model || "";
   if (!finalModel) return null;
-  return { key, base: resolved.base, model: finalModel, kind: resolved.kind, engine };
+  return { key, base: resolved.base, model: finalModel, kind: resolved.kind, engine, tts: preset?.tts ?? "openai" };
 }

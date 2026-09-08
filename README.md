@@ -8,7 +8,7 @@ El entorno arma el turno. El modelo solo genera texto. Cada quien trae su propia
 
 Al abrir pide el **motor** y la **API key**. xAI, OpenAI, Anthropic, OpenRouter, Groq, Mistral, Gemini, o un endpoint OpenAI-compatible (`https://host/v1`). Queda en *tu* navegador. No gasta la cuota de nadie más.
 
-La voz (escuchar) solo corre con xAI. El chat, con cualquiera.
+La voz (Escuchar) usa el TTS del mismo motor, si lo tiene. Anthropic, Mistral y Gemini no tienen.
 
 ## Qué es
 
