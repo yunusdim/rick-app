@@ -71,7 +71,7 @@ export const Route = createFileRoute("/api/chat")({
               temperature: parsed.data.temperature ?? 0.8,
               max_tokens: 800,
               messages: [
-                { role: "system", content: parsed.data.system.slice(0, 24000) },
+                { role: "system", content: parsed.data.system.slice(0, 32000) },
                 ...history,
               ],
             }),

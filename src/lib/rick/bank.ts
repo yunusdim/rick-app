@@ -9,6 +9,7 @@ import { nodeHash } from "@/lib/rick/hash";
 import { normalizeContent } from "@/lib/rick/normalize";
 import { pushRecorrido } from "@/lib/rick/recorrido";
 import { maybeSummarize } from "@/lib/rick/summary";
+import { FRAME_CANON } from "@/lib/rick/blueprint";
 import type { Domain, RickMessage } from "@/lib/rick/types";
 
 export type Scenario = { id: string; pass: boolean; detail: string };
@@ -189,6 +190,14 @@ export function runBank(): Scenario[] {
 
   check("alerta_001", d2.risk !== "CRITICAL" || d2.risk === "CRITICAL", "CRITICAL es el único corte de deriva");
   check("limits_001", ABSENCE_PHRASE === "no lo tengo en el canon de este eje", "frase de ausencia fija");
+
+  const framed = pack({ docs: [FRAME_CANON] });
+  check(
+    "frame_001",
+    framed.system.includes("RICK APP — RECONSTRUCCIÓN v9") &&
+      framed.system.includes("[CANONICAL · Mesa · Rick App — reconstrucción v9]"),
+    "el frame de fábrica entra entero a CANONICAL",
+  );
 
   return rows;
 }

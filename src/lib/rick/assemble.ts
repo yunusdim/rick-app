@@ -13,12 +13,8 @@ import type {
   HandPin,
   RickMessage,
 } from "@/lib/rick/types";
-import {
-  ENTITY_MAX_BYTES,
-  HAND_WINDOW,
-  SESSION_INJECT_WINDOW,
-  STATUS_LABEL,
-} from "@/lib/rick/types";
+import { ENTITY_MAX_BYTES, HAND_WINDOW, SESSION_INJECT_WINDOW, STATUS_LABEL } from "@/lib/rick/types";
+import { FRAME_ID } from "@/lib/rick/blueprint";
 import { uid } from "@/lib/utils";
 
 const MARK = {
@@ -116,9 +112,12 @@ export function assemble(input: {
   );
   if (canonDocs.length) {
     const listed = canonDocs
-      .map((d) => `[CANONICAL · ${input.domain.name} · ${d.title}]\n${clip(d.body, 2500)}`)
+      .map((d) => {
+        const cap = d.id === FRAME_ID ? ENTITY_MAX_BYTES : 2500;
+        return `[CANONICAL · ${input.domain.name} · ${d.title}]\n${clip(d.body, cap)}`;
+      })
       .join("\n\n")
-      .slice(0, 8000);
+      .slice(0, 24000);
     sections.push(
       section(
         "CANONICAL",

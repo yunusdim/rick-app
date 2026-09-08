@@ -23,6 +23,7 @@ import type {
   ViewId,
 } from "@/lib/rick/types";
 import { EMPTY_DIAG } from "@/lib/rick/diag";
+import { FRAME_CANON, FRAME_ID } from "@/lib/rick/blueprint";
 
 const MESA: Domain = {
   id: "mesa",
@@ -30,27 +31,6 @@ const MESA: Domain = {
   createdAt: 0,
   turnCount: 0,
   lastVisit: 0,
-};
-
-const FRAME_CANON: Doc = {
-  id: "frame",
-  domainId: "mesa",
-  title: "Rick App — marco v9",
-  kind: "canon",
-  createdAt: 0,
-  body: `Rick App no es RICK Runtime. Es otra máquina con la misma física del freeze v9: el entorno arma el turno, el modelo solo genera texto.
-Trece secciones en orden. Cada bloque declara estatus epistémico.
-CANONICAL es establecido. SESSION HISTORY es lo dicho, no verdad. MEMORY FACTS no es canon. CONTEXTO 2 es orientación interna: no se narra.
-RECORRIDO es mapa, no territorio. El sensor vive: cada evaluación queda anotada, dispare o no.
-Mesa es eje casa: sin modo fáctico ni precisión-sobre-relleno. Anti-invención de hechos, datos del operador y capacidades del sistema se conserva.
-En cualquier otro eje, sin verbo generativo, rige MODO FACTICO.
-Si no hay canon en el dominio activo, hay abstención.
-El chequeo contra canon es léxico. El resumen de sesión es extractivo y pasa una barrera léxica; no hay juez-LLM.
-La sesión está aislada por dominio.
-/olvidar pide confirmación, hace respaldo, y no toca canon ni identidad.
-El candado de gasto es opcional. El candado de motor bloquea si el modelo que respondió no es el de referencia.
-Los archivos que el operador importa viven en esta app; no son el estado del sistema hasta que el ensamblado los marca.
-El contrato del paquete corta si faltan secciones. Deriva CRITICAL corta hasta /drift.`,
 };
 
 let persistTimer: ReturnType<typeof setTimeout> | undefined;
@@ -266,14 +246,16 @@ export const useRick = create<RickState>()(
         );
         return { id, duplicate: false };
       },
-      removeDoc: (id) =>
+      removeDoc: (id) => {
+        if (id === FRAME_ID) return;
         set({
           docs: get().docs.filter((d) => d.id !== id),
           handPins: get().handPins.filter((p) => p.docId !== id),
-        }),
+        });
+      },
       promoteDoc: (id) => {
         const doc = get().docs.find((d) => d.id === id);
-        if (!doc || doc.id === "frame") return false;
+        if (!doc || doc.id === FRAME_ID) return false;
         set({
           docs: get().docs.map((d) =>
             d.id === id ? { ...d, kind: "canon" as const, deprecated: false } : d,
@@ -284,7 +266,7 @@ export const useRick = create<RickState>()(
       },
       demoteDoc: (id) => {
         const doc = get().docs.find((d) => d.id === id);
-        if (!doc || doc.id === "frame") return false;
+        if (!doc || doc.id === FRAME_ID) return false;
         set({
           docs: get().docs.map((d) =>
             d.id === id ? { ...d, kind: "library" as const, deprecated: true } : d,
@@ -478,8 +460,18 @@ export function rehydrateRick() {
   if (rehydrateStarted) return;
   rehydrateStarted = true;
   void Promise.resolve(useRick.persist.rehydrate()).finally(() => {
+    syncFrameCanon();
     if (!useRick.getState().hydrated) useRick.getState().setHydrated();
   });
+}
+
+/** Pisa el frame de fábrica. El resto del persist queda. */
+export function syncFrameCanon() {
+  const docs = useRick.getState().docs;
+  const others = docs.filter((d) => d.id !== FRAME_ID);
+  const current = docs.find((d) => d.id === FRAME_ID);
+  if (current?.body === FRAME_CANON.body && current.title === FRAME_CANON.title) return;
+  useRick.setState({ docs: [{ ...FRAME_CANON }, ...others] });
 }
 
 export function whenRickReady(): Promise<void> {
