@@ -1,29 +1,29 @@
 @import "tailwindcss";
 
 @theme {
-  --color-bg: #071428;
-  --color-surface: #0c1e3a;
-  --color-surface-2: #132848;
-  --color-fg: #e8eef8;
-  --color-muted: #8aa0c0;
-  --color-subtle: #5c7394;
-  --color-accent: #5b8fd4;
-  --color-accent-fg: #071428;
-  --color-line: #1e3a5f;
+  --color-bg: #020805;
+  --color-surface: #07140c;
+  --color-surface-2: #0c1f14;
+  --color-fg: #c8f5c8;
+  --color-muted: #5d9a68;
+  --color-subtle: #3d6b46;
+  --color-accent: #39ff14;
+  --color-accent-fg: #021003;
+  --color-line: #163b22;
   --color-danger: #c45c4a;
-  --color-rec: #e05d6f;
+  --color-rec: #ff4d6d;
 
-  --font-display: "Fraunces", ui-serif, Georgia, "Times New Roman", serif;
-  --font-sans: "Outfit", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+  --font-sans: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
   --font-mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
 
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 18px;
-  --radius-xl: 28px;
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
 
-  --shadow-border: 0 0 0 1px rgba(91, 143, 212, 0.22);
-  --shadow-border-hover: 0 0 0 1px rgba(91, 143, 212, 0.4);
+  --shadow-border: 0 0 0 1px rgba(57, 255, 20, 0.22);
+  --shadow-border-hover: 0 0 0 1px rgba(57, 255, 20, 0.45);
 
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
 }
@@ -38,10 +38,17 @@
 
   body {
     min-height: 100dvh;
-    background: var(--color-bg);
+    background-color: var(--color-bg);
+    background-image: repeating-linear-gradient(
+      to bottom,
+      transparent 0,
+      transparent 3px,
+      rgba(0, 18, 8, 0.55) 3px,
+      rgba(0, 18, 8, 0.55) 4px
+    );
     color: var(--color-fg);
     font-family: var(--font-sans);
-    letter-spacing: -0.011em;
+    letter-spacing: 0.01em;
   }
 
   button:not(:disabled),
@@ -53,6 +60,7 @@
   h2,
   h3 {
     text-wrap: balance;
+    letter-spacing: 0.04em;
   }
 
   p {
@@ -61,7 +69,7 @@
 
   ::selection {
     background: color-mix(in oklab, var(--color-accent) 40%, transparent);
-    color: var(--color-fg);
+    color: var(--color-accent-fg);
   }
 }
 
@@ -69,7 +77,7 @@
   background: linear-gradient(
     90deg,
     var(--color-muted) 0%,
-    var(--color-fg) 45%,
+    var(--color-accent) 45%,
     var(--color-muted) 100%
   );
   background-size: 200% 100%;
@@ -81,10 +89,12 @@
 
 .caret-pulse {
   animation: caret 1s steps(1) infinite;
+  background: var(--color-accent);
 }
 
 .safe-composer {
-  padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+  transform: translateY(calc(-1 * var(--kb, 0px)));
 }
 
 .rec-dot {

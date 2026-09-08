@@ -3,18 +3,26 @@ import { createJSONStorage, persist, type StateStorage } from "zustand/middlewar
 import { uid } from "@/lib/utils";
 import type { PersonaId } from "@/lib/chat/personas";
 import { parseDomainName } from "@/lib/rick/domain";
+import { nodeHash } from "@/lib/rick/hash";
+import { normalizeContent } from "@/lib/rick/normalize";
+import { pushRecorrido } from "@/lib/rick/recorrido";
 import type {
   AgendaEvent,
   Assembled,
   AssemblyRecord,
+  DiagPrev,
   Doc,
   Domain,
+  FocusState,
   ForgetBackup,
   GovCheck,
   HandPin,
+  RecorridoStep,
   RickMessage,
+  TraceEntry,
   ViewId,
 } from "@/lib/rick/types";
+import { EMPTY_DIAG } from "@/lib/rick/diag";
 
 const MESA: Domain = {
   id: "mesa",
@@ -27,19 +35,22 @@ const MESA: Domain = {
 const FRAME_CANON: Doc = {
   id: "frame",
   domainId: "mesa",
-  title: "Rick App — marco",
+  title: "Rick App — marco v9",
   kind: "canon",
   createdAt: 0,
-  body: `Rick App no es RICK Runtime. Es otra máquina con la misma física: el entorno arma el turno, el modelo solo genera texto.
-El instrumento de diagnóstico es el contexto ensamblado, no la respuesta.
-Cada bloque declara estatus epistémico. CANON es establecido. SESION es lo dicho, no verdad. MANO es ventana, no canon. VOZ es habla, no identidad.
-Los modos Grok / Espejo / Ácido / 3AM son VOZ, no identidad ni canon.
-Si no hay canon en el dominio activo, hay abstención: no se inventan hechos.
-El chequeo contra canon es léxico. No hay resumen-LLM.
-La sesión está aislada por dominio. El recorrido es mapa, no territorio.
+  body: `Rick App no es RICK Runtime. Es otra máquina con la misma física del freeze v9: el entorno arma el turno, el modelo solo genera texto.
+Trece secciones en orden. Cada bloque declara estatus epistémico.
+CANONICAL es establecido. SESSION HISTORY es lo dicho, no verdad. MEMORY FACTS no es canon. CONTEXTO 2 es orientación interna: no se narra.
+RECORRIDO es mapa, no territorio. El sensor vive: cada evaluación queda anotada, dispare o no.
+Mesa es eje casa: sin modo fáctico ni precisión-sobre-relleno. Anti-invención de hechos, datos del operador y capacidades del sistema se conserva.
+En cualquier otro eje, sin verbo generativo, rige MODO FACTICO.
+Si no hay canon en el dominio activo, hay abstención.
+El chequeo contra canon es léxico. El resumen de sesión es extractivo y pasa una barrera léxica; no hay juez-LLM.
+La sesión está aislada por dominio.
 /olvidar pide confirmación, hace respaldo, y no toca canon ni identidad.
-El candado de gasto es opcional: sin desbloqueo no se llama a Grok.
-Los archivos que el operador importa viven en esta app; no son el estado del sistema hasta que el ensamblado los marca.`,
+El candado de gasto es opcional. El candado de motor bloquea si el modelo que respondió no es el de referencia.
+Los archivos que el operador importa viven en esta app; no son el estado del sistema hasta que el ensamblado los marca.
+El contrato del paquete corta si faltan secciones. Deriva CRITICAL corta hasta /drift.`,
 };
 
 let persistTimer: ReturnType<typeof setTimeout> | undefined;
@@ -103,6 +114,16 @@ type RickState = {
   lockEnabled: boolean;
   pinSalt: string;
   pinHash: string;
+  summaries: Record<string, string>;
+  diagPrev: string;
+  lastDiag: DiagPrev;
+  focus: FocusState | null;
+  motorRef: string;
+  motorLast: string;
+  motorBlocked: boolean;
+  driftBlocked: boolean;
+  traces: TraceEntry[];
+  recorridoSeq: RecorridoStep[];
   setHydrated: () => void;
   setView: (view: ViewId) => void;
   setIdentity: (text: string) => void;
@@ -112,15 +133,30 @@ type RickState = {
   switchDomain: (id: string) => void;
   addDomain: (name: string) => { ok: true } | { ok: false; error: string };
   bumpTurns: () => void;
-  addDoc: (doc: Omit<Doc, "id" | "createdAt">) => void;
+  addDoc: (doc: Omit<Doc, "id" | "createdAt" | "hash" | "normalized" | "usageCount" | "lastUsedAt" | "deprecated">) => {
+    id: string;
+    duplicate: boolean;
+  };
   removeDoc: (id: string) => void;
+  promoteDoc: (id: string) => boolean;
+  demoteDoc: (id: string) => boolean;
+  bumpUsage: (ids: string[]) => void;
+  addTrace: (kind: string, detail: string) => void;
   pinToHand: (docId: string) => void;
   unpinFromHand: (docId: string) => void;
   addMessage: (msg: Omit<RickMessage, "id" | "createdAt"> & { id?: string }) => string;
   patchMessage: (id: string, content: string) => void;
+  removeMessage: (id: string) => void;
   addEvent: (event: Omit<AgendaEvent, "id">) => void;
   removeEvent: (id: string) => void;
   addChecks: (rows: GovCheck[]) => void;
+  setSummary: (domainId: string, text: string) => void;
+  setDiag: (diag: DiagPrev, text: string) => void;
+  setFocus: (focus: FocusState | null) => void;
+  setMotor: (last: string) => { blocked: boolean; first: boolean };
+  ackMotor: () => void;
+  ackDrift: () => void;
+  setDriftBlocked: (v: boolean) => void;
   forgetActive: () => ForgetBackup | null;
   restoreBackup: (id: string) => boolean;
   setLock: (enabled: boolean, salt?: string, hash?: string) => void;
@@ -148,6 +184,16 @@ export const useRick = create<RickState>()(
       lockEnabled: false,
       pinSalt: "",
       pinHash: "",
+      summaries: {},
+      diagPrev: "",
+      lastDiag: EMPTY_DIAG,
+      focus: null,
+      motorRef: "",
+      motorLast: "",
+      motorBlocked: false,
+      driftBlocked: false,
+      traces: [],
+      recorridoSeq: [],
       setHydrated: () => set({ hydrated: true }),
       setView: (view) => set({ view }),
       setIdentity: (identity) => set({ identity: identity.slice(0, 40000) }),
@@ -182,27 +228,84 @@ export const useRick = create<RickState>()(
       },
       bumpTurns: () => {
         const { activeDomainId, domains } = get();
+        const next = domains.map((d) =>
+          d.id === activeDomainId ? { ...d, turnCount: d.turnCount + 1, lastVisit: Date.now() } : d,
+        );
+        const active = next.find((d) => d.id === activeDomainId) ?? next[0];
         set({
-          domains: domains.map((d) =>
-            d.id === activeDomainId
-              ? { ...d, turnCount: d.turnCount + 1, lastVisit: Date.now() }
-              : d,
-          ),
+          domains: next,
+          recorridoSeq: pushRecorrido(get().recorridoSeq, active),
         });
       },
       addDoc: (doc) => {
-        set({
-          docs: [
-            ...get().docs,
-            { ...doc, id: uid(), createdAt: Date.now(), body: doc.body.slice(0, 20000) },
-          ],
-        });
+        const normalized = normalizeContent(`${doc.title} ${doc.body}`);
+        const hash = nodeHash(doc.domainId, doc.title, doc.body);
+        const exists = get().docs.find(
+          (d) => d.hash === hash && d.domainId === doc.domainId && !d.deprecated,
+        );
+        if (exists) {
+          get().addTrace("INGEST DUPLICADO", `${exists.id} tipo=${exists.kind} axis=${doc.domainId}`);
+          return { id: exists.id, duplicate: true };
+        }
+        const id = hash;
+        const row: Doc = {
+          ...doc,
+          id,
+          createdAt: Date.now(),
+          body: doc.body.slice(0, 20000),
+          hash,
+          normalized,
+          usageCount: 0,
+          lastUsedAt: 0,
+          deprecated: false,
+        };
+        set({ docs: [...get().docs, row] });
+        get().addTrace(
+          doc.kind === "canon" ? "REMEMBER" : "BIBLIOTECA",
+          `${id} axis=${doc.domainId} ${doc.title}`,
+        );
+        return { id, duplicate: false };
       },
       removeDoc: (id) =>
         set({
           docs: get().docs.filter((d) => d.id !== id),
           handPins: get().handPins.filter((p) => p.docId !== id),
         }),
+      promoteDoc: (id) => {
+        const doc = get().docs.find((d) => d.id === id);
+        if (!doc || doc.id === "frame") return false;
+        set({
+          docs: get().docs.map((d) =>
+            d.id === id ? { ...d, kind: "canon" as const, deprecated: false } : d,
+          ),
+        });
+        get().addTrace("CANONICAL PROMOTE", `${id} axis=${doc.domainId}`);
+        return true;
+      },
+      demoteDoc: (id) => {
+        const doc = get().docs.find((d) => d.id === id);
+        if (!doc || doc.id === "frame") return false;
+        set({
+          docs: get().docs.map((d) =>
+            d.id === id ? { ...d, kind: "library" as const, deprecated: true } : d,
+          ),
+        });
+        get().addTrace("CANONICAL DEMOTE", `${id} axis=${doc.domainId}`);
+        return true;
+      },
+      bumpUsage: (ids) => {
+        if (!ids.length) return;
+        const now = Date.now();
+        set({
+          docs: get().docs.map((d) =>
+            ids.includes(d.id) ? { ...d, usageCount: (d.usageCount ?? 0) + 1, lastUsedAt: now } : d,
+          ),
+        });
+      },
+      addTrace: (kind, detail) => {
+        const row: TraceEntry = { id: uid(), at: Date.now(), kind, detail };
+        set({ traces: [row, ...get().traces].slice(0, 200) });
+      },
       pinToHand: (docId) => {
         const { activeDomainId, domains, handPins, docs } = get();
         const doc = docs.find((d) => d.id === docId);
@@ -241,6 +344,7 @@ export const useRick = create<RickState>()(
           messages: get().messages.map((m) => (m.id === id ? { ...m, content } : m)),
         });
       },
+      removeMessage: (id) => set({ messages: get().messages.filter((m) => m.id !== id) }),
       addEvent: (event) => {
         set({ events: [...get().events, { ...event, id: uid() }] });
       },
@@ -248,8 +352,29 @@ export const useRick = create<RickState>()(
       addChecks: (rows) => {
         set({ checks: [...rows, ...get().checks].slice(0, 240) });
       },
+      setSummary: (domainId, text) =>
+        set({ summaries: { ...get().summaries, [domainId]: text } }),
+      setDiag: (lastDiag, diagPrev) => set({ lastDiag, diagPrev }),
+      setFocus: (focus) => set({ focus }),
+      setMotor: (last) => {
+        const ref = get().motorRef;
+        if (!last) return { blocked: get().motorBlocked, first: false };
+        if (!ref) {
+          set({ motorRef: last, motorLast: last, motorBlocked: false });
+          return { blocked: false, first: true };
+        }
+        if (last !== ref) {
+          set({ motorLast: last, motorBlocked: true });
+          return { blocked: true, first: false };
+        }
+        set({ motorLast: last, motorBlocked: false });
+        return { blocked: false, first: false };
+      },
+      ackMotor: () => set({ motorRef: get().motorLast || get().motorRef, motorBlocked: false }),
+      ackDrift: () => set({ driftBlocked: false }),
+      setDriftBlocked: (driftBlocked) => set({ driftBlocked }),
       forgetActive: () => {
-        const { activeDomainId, domains, messages, backups } = get();
+        const { activeDomainId, domains, messages, backups, summaries } = get();
         const domain = domains.find((d) => d.id === activeDomainId);
         const thread = messages.filter((m) => m.domainId === activeDomainId);
         if (!domain || thread.length === 0) return null;
@@ -260,11 +385,15 @@ export const useRick = create<RickState>()(
           at: Date.now(),
           messages: thread,
         };
+        const nextSum = { ...summaries };
+        delete nextSum[activeDomainId];
         set({
           messages: messages.filter((m) => m.domainId !== activeDomainId),
           lastAssembled: null,
           backups: [backup, ...backups].slice(0, 12),
+          summaries: nextSum,
         });
+        get().addTrace("OLVIDO", `conversacion de ${domain.name} borrada`);
         return backup;
       },
       restoreBackup: (id) => {
@@ -315,6 +444,8 @@ export const useRick = create<RickState>()(
             bytes: sec.bytes,
             body: sec.body.slice(0, 900),
           })),
+          factual: a.factual,
+          home: a.home,
         })),
         backups: s.backups.slice(0, 8).map((b) => ({
           ...b,
@@ -325,6 +456,16 @@ export const useRick = create<RickState>()(
         lockEnabled: s.lockEnabled,
         pinSalt: s.pinSalt,
         pinHash: s.pinHash,
+        summaries: s.summaries,
+        diagPrev: s.diagPrev,
+        lastDiag: s.lastDiag,
+        focus: s.focus,
+        motorRef: s.motorRef,
+        motorLast: s.motorLast,
+        motorBlocked: s.motorBlocked,
+        driftBlocked: s.driftBlocked,
+        traces: s.traces.slice(0, 80),
+        recorridoSeq: s.recorridoSeq,
       }),
       onRehydrateStorage: () => (state) => state?.setHydrated(),
     },

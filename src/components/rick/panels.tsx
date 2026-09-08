@@ -144,6 +144,8 @@ export function CanonPanel() {
   const docs = useRick((s) => s.docs);
   const addDoc = useRick((s) => s.addDoc);
   const removeDoc = useRick((s) => s.removeDoc);
+  const promoteDoc = useRick((s) => s.promoteDoc);
+  const demoteDoc = useRick((s) => s.demoteDoc);
   const handPins = useRick((s) => s.handPins);
   const pinToHand = useRick((s) => s.pinToHand);
   const unpinFromHand = useRick((s) => s.unpinFromHand);
@@ -154,8 +156,9 @@ export function CanonPanel() {
   const [tick, setTick] = useState(0);
 
   const mine = docs.filter((d) => d.domainId === domain.id);
-  const topics = mine.filter((d) => d.id !== "frame" && d.kind === "canon");
-  const library = mine.filter((d) => d.kind === "library");
+  const topics = mine.filter((d) => d.id !== "frame" && d.kind === "canon" && !d.deprecated);
+  const library = mine.filter((d) => d.kind === "library" && !d.deprecated);
+  const retired = mine.filter((d) => d.deprecated);
   const frame = mine.find((d) => d.id === "frame");
 
   function save() {
@@ -163,10 +166,11 @@ export function CanonPanel() {
       toast.error("Título y texto.");
       return;
     }
-    addDoc({ domainId: domain.id, title: title.trim(), body, kind });
+    const result = addDoc({ domainId: domain.id, title: title.trim(), body, kind });
     setTitle("");
     setBody("");
-    toast.success(kind === "canon" ? "Tema en canon." : "A la biblioteca.");
+    if (result.duplicate) toast("Ya estaba en este eje (mismo hash).");
+    else toast.success(kind === "canon" ? "Tema en canon." : "A la biblioteca.");
   }
 
   return (
@@ -279,6 +283,18 @@ export function CanonPanel() {
                   kindLabel="tema"
                   snippet={d.body}
                   onRemove={() => removeDoc(d.id)}
+                  action={
+                    <button
+                      type="button"
+                      className="h-11 px-2 text-xs text-subtle hover:text-fg"
+                      onClick={() => {
+                        demoteDoc(d.id);
+                        toast("Demote. Queda fuera del contexto.");
+                      }}
+                    >
+                      Demote
+                    </button>
+                  }
                 />
               ))}
             </ul>
@@ -304,18 +320,62 @@ export function CanonPanel() {
                     extra={live ? `A mano · quedan ${left} turnos` : undefined}
                     onRemove={() => removeDoc(d.id)}
                     action={
-                      <button
-                        type="button"
-                        className={cn("size-11", live ? "text-accent" : "text-subtle hover:text-fg")}
-                        aria-label={live ? "Sacar de la mano" : "Poner a mano"}
-                        onClick={() => (live ? unpinFromHand(d.id) : pinToHand(d.id))}
-                      >
-                        <Hand className="mx-auto size-4" />
-                      </button>
+                      <div className="flex">
+                        <button
+                          type="button"
+                          className="h-11 px-2 text-xs text-subtle hover:text-fg"
+                          onClick={() => {
+                            promoteDoc(d.id);
+                            toast("Promote a canon.");
+                          }}
+                        >
+                          Promote
+                        </button>
+                        <button
+                          type="button"
+                          className={cn("size-11", live ? "text-accent" : "text-subtle hover:text-fg")}
+                          aria-label={live ? "Sacar de la mano" : "Poner a mano"}
+                          onClick={() => (live ? unpinFromHand(d.id) : pinToHand(d.id))}
+                        >
+                          <Hand className="mx-auto size-4" />
+                        </button>
+                      </div>
                     }
                   />
                 );
               })}
+            </ul>
+          </section>
+        ) : null}
+
+        {retired.length ? (
+          <section>
+            <p className="mb-2 text-xs font-medium tracking-widest text-muted uppercase">
+              Deprecados
+            </p>
+            <ul className="flex flex-col gap-2">
+              {retired.map((d) => (
+                <DocRow
+                  key={d.id}
+                  title={d.title}
+                  kindLabel="deprecado"
+                  snippet={d.body}
+                  extra="Fuera del contexto. Se conserva."
+                  onRemove={() => removeDoc(d.id)}
+                  action={
+                    <button
+                      type="button"
+                      className="h-11 px-2 text-xs text-subtle hover:text-fg"
+                      onClick={() => {
+                        promoteDoc(d.id);
+                        toast("Restaurado a canon.");
+                      }}
+                    >
+                      Restaurar
+                    </button>
+                  }
+                />
+              ))}
             </ul>
           </section>
         ) : null}

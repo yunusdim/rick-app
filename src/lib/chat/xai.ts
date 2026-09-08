@@ -6,7 +6,7 @@ export async function streamChat(input: {
   messages: WireMessage[];
   signal?: AbortSignal;
   onToken: (token: string) => void;
-}) {
+}): Promise<{ text: string; model: string }> {
   const res = await fetch("/api/chat", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -35,6 +35,7 @@ export async function streamChat(input: {
   const decoder = new TextDecoder();
   let buffer = "";
   let full = "";
+  let model = "";
 
   while (true) {
     const { done, value } = await reader.read();
@@ -50,8 +51,9 @@ export async function streamChat(input: {
         .trim();
       if (!line || line === "[DONE]") continue;
       try {
-        const parsed = JSON.parse(line) as { t?: string; error?: string };
+        const parsed = JSON.parse(line) as { t?: string; m?: string; error?: string };
         if (parsed.error) throw new Error(parsed.error);
+        if (parsed.m) model = parsed.m;
         if (parsed.t) {
           full += parsed.t;
           input.onToken(parsed.t);
@@ -63,7 +65,7 @@ export async function streamChat(input: {
     }
   }
 
-  return full;
+  return { text: full, model };
 }
 
 export async function speakText(input: { text: string; voiceId: string; signal?: AbortSignal }) {

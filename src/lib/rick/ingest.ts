@@ -13,13 +13,17 @@ export async function ingestFiles(
   for (const file of files) {
     try {
       const extracted = await extractFromFile(file);
-      addDoc({
+      const result = addDoc({
         domainId: opts.domainId,
         title: extracted.title,
         body: extracted.body,
         kind: opts.kind,
       });
-      ok += 1;
+      if (result.duplicate) {
+        fail.push(`${file.name}: ya estaba en este eje (mismo hash)`);
+      } else {
+        ok += 1;
+      }
       if (extracted.truncated) truncated += 1;
     } catch (err) {
       fail.push(`${file.name}: ${err instanceof Error ? err.message : "no se pudo leer"}`);

@@ -47,10 +47,7 @@ export function runChecks(input: {
     kind: "canon",
     alert: false,
     abstain: false,
-    detail:
-      input.canonCount > 0
-        ? `${input.canonCount} canónico(s) inyectado(s)`
-        : "canon vacío (declarado)",
+    detail: input.canonCount > 0 ? `${input.canonCount} canónico(s) inyectado(s)` : "canon vacío (declarado)",
   });
 
   checks.push({
@@ -138,7 +135,24 @@ export function runReplyChecks(input: { reply: string; canonText: string }): Gov
 }
 
 export function rates(checks: GovCheck[]) {
-  const kinds: GovKind[] = ["deriva", "canon", "identidad", "agenda", "lexico", "invencion"];
+  const kinds: GovKind[] = [
+    "deriva",
+    "canon",
+    "identidad",
+    "agenda",
+    "lexico",
+    "invencion",
+    "enforcer",
+    "contradiccion",
+    "foco",
+    "motor",
+    "ancla",
+    "orden",
+    "vce",
+    "resumen",
+    "contrato",
+    "cobertura",
+  ];
   return kinds.map((kind) => {
     const rows = checks.filter((c) => c.kind === kind && !c.abstain);
     const alerts = rows.filter((c) => c.alert).length;

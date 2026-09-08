@@ -10,10 +10,10 @@ export const Route = createRootRoute({
   head: () => ({
     meta: [
       { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1" },
+      { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=overlays-content" },
       { title: APP_NAME },
       { name: "description", content: "El entorno arma el turno." },
-      { name: "theme-color", content: "#071428" },
+      { name: "theme-color", content: "#020805" },
       { name: "robots", content: "noindex, nofollow" },
     ],
     links: [
@@ -29,7 +29,7 @@ export const Route = createRootRoute({
       },
       {
         rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;1,9..144,500&family=Outfit:wght@400;500;600&display=swap",
+        href: "https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,400;0,500;0,600;1,400&display=swap",
       },
     ],
   }),

@@ -112,7 +112,13 @@ export const Route = createFileRoute("/api/chat")({
                   try {
                     const event = JSON.parse(data) as {
                       choices?: { delta?: { content?: string } }[];
+                      model?: string;
                     };
+                    if (event.model) {
+                      controller.enqueue(
+                        encoder.encode(`data: ${JSON.stringify({ m: event.model })}\n\n`),
+                      );
+                    }
                     const token = event.choices?.[0]?.delta?.content;
                     if (token) {
                       controller.enqueue(

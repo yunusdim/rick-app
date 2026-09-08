@@ -26,7 +26,13 @@ import { AttachButton, DropCanvas } from "@/components/rick/attach";
 import { useMic, useSpeaker } from "@/lib/chat/hooks";
 import { PERSONA_LIST, PERSONAS, type PersonaId } from "@/lib/chat/personas";
 import { streamChat } from "@/lib/chat/xai";
-import { assemble } from "@/lib/rick/assemble";
+import { assemble, orderOk } from "@/lib/rick/assemble";
+import { validateContract } from "@/lib/rick/contract";
+import { contradictionScore, replyCanonScore, CANON_BLOCK, CANON_WARN } from "@/lib/rick/contradiction";
+import { formatDiag } from "@/lib/rick/diag";
+import { computeDrift } from "@/lib/rick/drift";
+import { enforceMemoryUsage } from "@/lib/rick/enforcer";
+import { isHomeAxis } from "@/lib/rick/factual";
 import { runChecks, runReplyChecks } from "@/lib/rick/govern";
 import {
   hashPin,
@@ -35,8 +41,12 @@ import {
   setSessionUnlocked,
 } from "@/lib/rick/lock";
 import { useRecorder } from "@/lib/rick/recorder";
+import { recorridoText } from "@/lib/rick/recorrido";
 import { useActiveDomain, useRick, rehydrateRick } from "@/lib/rick/store";
+import { maybeSummarize } from "@/lib/rick/summary";
+import { overlap } from "@/lib/rick/tokens";
 import type { ViewId } from "@/lib/rick/types";
+import { computeVce } from "@/lib/rick/vce";
 import { cn, uid } from "@/lib/utils";
 
 const NAV: { id: ViewId; label: string; icon: typeof FileText }[] = [
@@ -72,6 +82,20 @@ export function RickApp() {
   const setLock = useRick((s) => s.setLock);
   const clearPin = useRick((s) => s.clearPin);
   const domain = useActiveDomain();
+  const setSummary = useRick((s) => s.setSummary);
+  const setDiag = useRick((s) => s.setDiag);
+  const setFocusState = useRick((s) => s.setFocus);
+  const ackMotor = useRick((s) => s.ackMotor);
+  const ackDrift = useRick((s) => s.ackDrift);
+  const setMotor = useRick((s) => s.setMotor);
+  const bumpUsage = useRick((s) => s.bumpUsage);
+  const setDriftBlocked = useRick((s) => s.setDriftBlocked);
+  const addDoc = useRick((s) => s.addDoc);
+  const addTrace = useRick((s) => s.addTrace);
+  const motorBlocked = useRick((s) => s.motorBlocked);
+  const motorRef = useRick((s) => s.motorRef);
+  const motorLast = useRick((s) => s.motorLast);
+  const focus = useRick((s) => s.focus);
 
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
@@ -97,12 +121,30 @@ export function RickApp() {
     setUnlocked(isSessionUnlocked());
   }, [lockEnabled]);
 
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const sync = () => {
+      const kb = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+      document.documentElement.style.setProperty("--kb", `${Math.round(kb)}px`);
+    };
+    vv.addEventListener("resize", sync);
+    vv.addEventListener("scroll", sync);
+    sync();
+    return () => {
+      vv.removeEventListener("resize", sync);
+      vv.removeEventListener("scroll", sync);
+      document.documentElement.style.removeProperty("--kb");
+    };
+  }, []);
+
   const thread = messages.filter((m) => m.domainId === domain.id);
   const locked = lockEnabled && !unlocked;
   const topicDocs = useRick((s) => s.docs).filter(
     (d) => d.domainId === domain.id && d.kind === "canon" && d.id !== "frame",
   );
   const identity = useRick((s) => s.identity);
+  const home = isHomeAxis(domain.id);
 
   const sendText = useCallback(
     async (raw: string) => {
@@ -115,11 +157,49 @@ export function RickApp() {
         setLockOpen(true);
         return;
       }
+      if (state.motorBlocked) {
+        toast.error("Motor cambió. /motor para reconocer el modelo nuevo.");
+        return;
+      }
+      if (state.driftBlocked) {
+        toast.error("Deriva crítica. /drift para continuar.");
+        return;
+      }
 
       const active = state.domains.find((d) => d.id === state.activeDomainId) ?? state.domains[0];
       const domainMsgs = state.messages.filter((m) => m.domainId === active.id);
-      const canonDocs = state.docs.filter((d) => d.kind === "canon" && d.domainId === active.id);
-      const canonText = canonDocs.map((d) => `${d.title}\n${d.body}`).join("\n");
+      const canonDocs = state.docs.filter(
+        (d) => d.kind === "canon" && d.domainId === active.id && !d.deprecated,
+      );
+      const canonText = canonDocs.map((d) => d.normalized || `${d.title}\n${d.body}`).join("\n");
+      const otherCanon = state.docs
+        .filter((d) => d.kind === "canon" && d.domainId !== active.id && !d.deprecated)
+        .map((d) => d.normalized || `${d.title}\n${d.body}`)
+        .join("\n");
+      const vce = computeVce(domainMsgs);
+      const drift = computeDrift(text, domainMsgs);
+      const contra = contradictionScore(text, canonText, otherCanon);
+      const recorrido = recorridoText(state.domains, state.checks, active.id, state.recorridoSeq);
+      const identityPresent = Boolean(state.identity.trim());
+      const meta =
+        active.turnCount > 0 && active.turnCount % 20 === 0
+          ? `turno ${active.turnCount} · eje ${active.name} · bytes de gobierno, no contenido`
+          : "";
+
+      if (drift.risk === "CRITICAL") {
+        setDriftBlocked(true);
+        addChecks([
+          {
+            id: uid(),
+            at: Date.now(),
+            kind: "deriva",
+            alert: true,
+            abstain: false,
+            detail: `CRITICAL · ${drift.reason}`,
+          },
+        ]);
+        toast.error("Deriva crítica. /drift para continuar.");
+      }
 
       const assembled = assemble({
         identity: state.identity,
@@ -131,10 +211,23 @@ export function RickApp() {
         handPins: state.handPins,
         voice: state.voice,
         userTurn: text,
+        diagPrev: state.diagPrev,
+        recorrido,
+        sessionSummary: state.summaries[active.id] ?? "",
+        focus: state.focus,
+        vceInstruction: vce.instruction,
+        driftLine: `${drift.risk} · ${drift.type} · ${drift.reason}`,
+        anclaIdentity: identityPresent,
+        meta,
       });
+      const orden = orderOk(assembled.sections);
+      const contract = validateContract(assembled.sections);
+      assembled.contractOk = contract.ok;
+      assembled.driftRisk = drift.risk;
       setLastAssembled(assembled);
-      addChecks(
-        runChecks({
+
+      const extraChecks = [
+        ...runChecks({
           userTurn: text,
           messages: domainMsgs,
           canonCount: canonDocs.length,
@@ -144,11 +237,73 @@ export function RickApp() {
             (e) => e.domainId === active.id && e.start >= Date.now() - 3600000,
           ).length,
         }),
-      );
+        {
+          id: uid(),
+          at: Date.now(),
+          kind: "contradiccion" as const,
+          alert: contra.score >= CANON_WARN,
+          abstain: false,
+          detail: contra.type === "ninguna" ? "sin contradicción léxica" : `directa ${contra.score.toFixed(2)}`,
+        },
+        {
+          id: uid(),
+          at: Date.now(),
+          kind: "vce" as const,
+          alert: false,
+          abstain: vce.mode === "OBSERVE",
+          detail: `${vce.mode} · ${vce.diagnosis}`,
+        },
+        {
+          id: uid(),
+          at: Date.now(),
+          kind: "ancla" as const,
+          alert: false,
+          abstain: false,
+          detail: identityPresent ? "identidad en el paquete" : "identidad vacía (declarada)",
+        },
+        {
+          id: uid(),
+          at: Date.now(),
+          kind: "orden" as const,
+          alert: !orden.ok,
+          abstain: false,
+          detail: orden.ok ? "secciones en orden canónico" : `fuera de orden: ${orden.detail}`,
+        },
+        {
+          id: uid(),
+          at: Date.now(),
+          kind: "contrato" as const,
+          alert: !contract.ok,
+          abstain: false,
+          detail: contract.ok ? "contrato OK" : `FAIL ${contract.detail}`,
+        },
+        {
+          id: uid(),
+          at: Date.now(),
+          kind: "deriva" as const,
+          alert: drift.risk === "HIGH" || drift.risk === "CRITICAL",
+          abstain: drift.abstain,
+          detail: `${drift.risk} · ${drift.type} · ${drift.reason}`,
+        },
+      ];
+      addChecks(extraChecks);
 
       addMessage({ domainId: active.id, role: "user", content: text, voice: state.voice });
       bumpTurns();
       setDraft("");
+
+      if (drift.risk === "CRITICAL" || !contract.ok) {
+        const reason =
+          drift.risk === "CRITICAL" ? "deriva CRITICAL" : `contrato FAIL: ${contract.detail}`;
+        addMessage({
+          domainId: active.id,
+          role: "assistant",
+          content: `[BLOQUEADO] ${reason}. La respuesta no entra al hilo.`,
+          voice: state.voice,
+        });
+        toast.error(reason);
+        return;
+      }
 
       const assistantId = uid();
       addMessage({
@@ -167,8 +322,9 @@ export function RickApp() {
       const timeout = window.setTimeout(() => controller.abort(), 40000);
 
       let assembledText = "";
+      let modelName = "";
       try {
-        assembledText = await streamChat({
+        const streamed = await streamChat({
           system: assembled.system,
           temperature: PERSONAS[state.voice].temperature,
           messages: [{ role: "user", content: text }],
@@ -184,11 +340,115 @@ export function RickApp() {
             }
           },
         });
+        assembledText = streamed.text;
+        modelName = streamed.model;
         if (!assembledText.trim()) {
           assembledText = "Me quedé en blanco. Tirame de nuevo.";
         }
-        patchMessage(assistantId, assembledText);
-        addChecks(runReplyChecks({ reply: assembledText, canonText }));
+
+        const lastAsst = [...domainMsgs].reverse().find((m) => m.role === "assistant")?.content ?? "";
+        const enf = enforceMemoryUsage({
+          userTurn: text,
+          reply: assembledText,
+          lastAssistant: lastAsst,
+        });
+        const canonHit = replyCanonScore(assembledText, canonText);
+        let blocked = enf.decision === "BLOCK";
+        let blockReason = enf.reason;
+        if (!blocked && canonText.trim() && canonHit > CANON_BLOCK && contra.score > 0) {
+          blocked = true;
+          blockReason = `contradicción con canon ${canonHit.toFixed(2)}`;
+        }
+
+        addChecks([
+          {
+            id: uid(),
+            at: Date.now(),
+            kind: "enforcer",
+            alert: enf.decision !== "PASS",
+            abstain: false,
+            detail: `${enf.decision} · ${enf.reason}`,
+          },
+          ...runReplyChecks({ reply: assembledText, canonText }),
+        ]);
+
+        if (modelName) {
+          const motor = setMotor(modelName);
+          if (motor.first) toast(`Motor de referencia: ${modelName}`);
+          if (motor.blocked) toast.error(`Motor distinto (${modelName}). /motor para reconocer.`);
+        }
+
+        if (blocked) {
+          const msg = `[BLOQUEADO] ${blockReason}. La respuesta no entra al hilo.`;
+          patchMessage(assistantId, msg);
+          toast.error(msg);
+        } else {
+          patchMessage(assistantId, assembledText);
+          if (assembled.selectedIds?.length) bumpUsage(assembled.selectedIds);
+          if (state.focus && state.focus.domainId === active.id) {
+            const hit = overlap(assembledText, `${state.focus.label} ${state.focus.thesis}`);
+            if (assembledText.length > 80 && hit === 0) {
+              addChecks([
+                {
+                  id: uid(),
+                  at: Date.now(),
+                  kind: "foco",
+                  alert: true,
+                  abstain: false,
+                  detail: "FOCUS DISPLACED — la respuesta no toca el foco declarado",
+                },
+              ]);
+              toast("Foco desplazado.");
+            }
+          }
+          const sum = maybeSummarize({
+            messages: [
+              ...domainMsgs,
+              {
+                id: assistantId,
+                domainId: active.id,
+                role: "assistant",
+                content: assembledText,
+                voice: state.voice,
+                createdAt: Date.now(),
+              },
+            ],
+            previous: state.summaries[active.id] ?? "",
+            canonText,
+          });
+          if (sum.rejected) {
+            addChecks([
+              {
+                id: uid(),
+                at: Date.now(),
+                kind: "resumen",
+                alert: true,
+                abstain: false,
+                detail: sum.reason,
+              },
+            ]);
+          } else if (sum.summary !== (state.summaries[active.id] ?? "")) {
+            setSummary(active.id, sum.summary);
+          }
+        }
+
+        const diag = {
+          foco: state.focus?.label ?? "s/d",
+          abstraccion: "s/d",
+          deriva: extraChecks.find((c) => c.kind === "deriva")?.detail ?? "LOW",
+          vce: `${vce.mode} (${vce.diagnosis})`,
+          enforcer: blocked ? `BLOCK (${blockReason})` : `${enf.decision} (${enf.reason})`,
+          contradiccion: String(contra.score),
+          cobertura: canonHit.toFixed(2),
+          densidad: String(vce.tema.toFixed(2)),
+          continuidad: extraChecks.find((c) => c.kind === "deriva")?.detail ?? "s/d",
+          loop: active.name,
+          tema: String(vce.tema.toFixed(2)),
+          profundidad: vce.profundidad,
+          balance: vce.balance,
+          selector: "lexico",
+        };
+        setDiag(diag, formatDiag(diag));
       } catch (err) {
         const aborted = (err as Error).name === "AbortError";
         if (aborted) {
@@ -213,15 +473,16 @@ export function RickApp() {
         abortRef.current = null;
       }
 
-      if (useRick.getState().autoSpeak && assembledText.trim()) {
+      const finalText = useRick.getState().messages.find((m) => m.id === assistantId)?.content ?? "";
+      if (useRick.getState().autoSpeak && finalText.trim() && !finalText.startsWith("[BLOQUEADO]")) {
         try {
-          await speaker.play(assistantId, assembledText, PERSONAS[state.voice].voiceId);
+          await speaker.play(assistantId, finalText, PERSONAS[state.voice].voiceId);
         } catch {
           toast.error("No pude hablar ahora.");
         }
       }
     },
-    [addChecks, addMessage, bumpTurns, busy, patchMessage, setLastAssembled, speaker],
+    [addChecks, addMessage, bumpTurns, bumpUsage, busy, patchMessage, setDiag, setDriftBlocked, setLastAssembled, setMotor, setSummary, speaker],
   );
 
   const mic = useMic((text) => void sendText(text));
@@ -229,8 +490,9 @@ export function RickApp() {
   async function handleCommand(raw: string): Promise<boolean> {
     const text = raw.trim();
     if (!text.startsWith("/")) return false;
-    const [cmd] = text.slice(1).toLowerCase().split(/\s+/);
-    if (cmd === "grabar") {
+    const [cmd, ...rest] = text.slice(1).split(/\s+/);
+    const key = cmd.toLowerCase();
+    if (key === "grabar") {
       try {
         await recorder.start();
         toast("Grabando. /parar o el botón para cortar.");
@@ -239,7 +501,7 @@ export function RickApp() {
       }
       return true;
     }
-    if (cmd === "parar" || cmd === "stop") {
+    if (key === "parar" || key === "stop") {
       const item = await recorder.stop();
       if (item) {
         setTapeKey((k) => k + 1);
@@ -248,27 +510,88 @@ export function RickApp() {
       }
       return true;
     }
-    if (cmd === "agenda") {
+    if (key === "agenda") {
       setView("agenda");
       return true;
     }
-    if (cmd === "canon") {
+    if (key === "canon") {
       setView("canon");
       return true;
     }
-    if (cmd === "inspeccionar" || cmd === "inspect" || cmd === "paquete") {
+    if (key === "inspeccionar" || key === "inspect" || key === "paquete") {
       setView("inspect");
       return true;
     }
-    if (cmd === "grabaciones" || cmd === "cintas") {
+    if (key === "grabaciones" || key === "cintas") {
       setView("grabaciones");
       return true;
     }
-    if (cmd === "candado") {
+    if (key === "candado") {
       setLockOpen(true);
       return true;
     }
-    if (cmd === "restaurar") {
+    if (key === "recorrido") {
+      toast(recorridoText(useRick.getState().domains, useRick.getState().checks, domain.id, useRick.getState().recorridoSeq));
+      setView("inspect");
+      return true;
+    }
+    if (key === "remember" || key === "recordar") {
+      const body = rest.join(" ").trim();
+      if (!body) {
+        toast.error("/remember <texto canónico de este eje>");
+        return true;
+      }
+      const result = addDoc({
+        domainId: domain.id,
+        title: body.slice(0, 48),
+        body,
+        kind: "canon",
+      });
+      toast(result.duplicate ? "Ya estaba en el canon de este eje." : "Canónico en este eje.");
+      return true;
+    }
+    if (key === "vce") {
+      const v = computeVce(messages.filter((m) => m.domainId === domain.id));
+      toast(`VCE ${v.mode} · ${v.diagnosis}`);
+      return true;
+    }
+    if (key === "banco") {
+      setView("inspect");
+      toast("Paquete → Banco.");
+      return true;
+    }
+    if (key === "focus" || key === "foco") {
+      const sub = rest[0]?.toLowerCase();
+      if (sub === "clear" || sub === "limpiar") {
+        setFocusState(null);
+        toast("Foco limpio.");
+        return true;
+      }
+      const thesis = rest.join(" ").replace(/^(set|conversacion|conversación)\s+/i, "").trim();
+      if (!thesis) {
+        toast(focus ? `Foco: ${focus.label}` : "Uso: /focus set <tesis>");
+        return true;
+      }
+      setFocusState({ label: thesis.slice(0, 40), thesis, domainId: domain.id });
+      toast("Foco fijado.");
+      return true;
+    }
+    if (key === "motor") {
+      const sub = rest[0]?.toLowerCase();
+      if (sub === "acknowledge" || sub === "ack") {
+        ackMotor();
+        toast("Motor reconocido.");
+        return true;
+      }
+      toast(`ref=${motorRef || "—"} last=${motorLast || "—"} ${motorBlocked ? "BLOQUEADO" : "ok"}`);
+      return true;
+    }
+    if (key === "drift") {
+      ackDrift();
+      toast("Deriva reconocida.");
+      return true;
+    }
+    if (key === "restaurar") {
       const last = backups[0];
       if (!last) {
         toast.error("No hay respaldo.");
@@ -278,17 +601,17 @@ export function RickApp() {
       toast.success("Hilo restaurado.");
       return true;
     }
-    if (cmd === "olvidar") {
+    if (key === "olvidar") {
       setForgetOpen(true);
       return true;
     }
-    if (cmd === "grok" || cmd === "espejo" || cmd === "acido" || cmd === "3am" || cmd === "night") {
-      const id = (cmd === "3am" ? "night" : cmd) as PersonaId;
+    if (key === "grok" || key === "espejo" || key === "acido" || key === "3am" || key === "night") {
+      const id = (key === "3am" ? "night" : key) as PersonaId;
       setVoice(id);
       toast(`Voz: ${PERSONAS[id].name}`);
       return true;
     }
-    toast.error("Comando desconocido. /grabar /parar /agenda /canon /paquete /olvidar /candado");
+    toast.error("Comandos: /olvidar /paquete /canon /remember /recorrido /focus /motor /drift /vce /candado /grabar");
     return true;
   }
 
@@ -323,7 +646,7 @@ export function RickApp() {
         <aside className="hidden w-60 shrink-0 flex-col border-r border-line lg:flex">
           <div className="px-4 pt-5 pb-3">
             <p className="font-display text-xl tracking-tight">Rick App</p>
-            <p className="mt-1 text-xs text-muted">El entorno arma el turno</p>
+            <p className="mt-1 text-xs text-muted">v9 · matrix</p>
           </div>
           <nav className="flex flex-col gap-1 px-2">
             {NAV.map((item) => (
@@ -350,7 +673,7 @@ export function RickApp() {
             >
               {domains.map((d) => (
                 <option key={d.id} value={d.id}>
-                  {d.name}
+                  {d.id === "mesa" ? `${d.name} · casa` : d.name}
                 </option>
               ))}
             </select>
@@ -365,8 +688,11 @@ export function RickApp() {
             <div className="min-w-0 flex-1">
               <p className="font-display text-lg leading-none tracking-tight">Rick App</p>
               <p className="mt-1 truncate text-xs text-muted">
-                {domain.name} · {PERSONAS[voice].name}
+                {domain.name}
+                {home ? " · casa" : " · fáctico"} · {PERSONAS[voice].name}
                 {locked ? " · candado" : ""}
+                {motorBlocked ? " · motor" : ""}
+                {focus ? ` · foco ${focus.label}` : ""}
                 {recorder.recording ? " · grabando" : ""}
               </p>
             </div>
@@ -394,12 +720,7 @@ export function RickApp() {
               </Button>
             </Tooltip>
             <Tooltip content={autoSpeak ? "No leer en voz alta" : "Leer respuestas"}>
-              <Button
-                variant="ghost"
-                size="iconSm"
-                aria-label="Voz"
-                onClick={() => setAutoSpeak(!autoSpeak)}
-              >
+              <Button variant="ghost" size="iconSm" aria-label="Voz" onClick={() => setAutoSpeak(!autoSpeak)}>
                 {autoSpeak ? <Volume2 className="size-4" /> : <VolumeX className="size-4" />}
               </Button>
             </Tooltip>
@@ -461,6 +782,7 @@ export function RickApp() {
                 liveText={liveText}
                 playingId={speaker.playingId}
                 locked={locked}
+                home={home}
                 onSpeak={(id, content, v) => {
                   void speaker.play(id, content, PERSONAS[v].voiceId).catch(() => {
                     toast.error("No pude hablar ahora.");
@@ -581,6 +903,7 @@ function MesaThread({
   liveText,
   playingId,
   locked,
+  home,
   onSpeak,
   onStop,
 }: {
@@ -589,22 +912,27 @@ function MesaThread({
   liveText: string;
   playingId: string | null;
   locked: boolean;
+  home: boolean;
   onSpeak: (id: string, content: string, voice: PersonaId) => void;
   onStop: () => void;
 }) {
   const endRef = useRef<HTMLDivElement>(null);
+  const stick = useRef(true);
   useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [messages, streamingId, liveText]);
+    if (!stick.current) return;
+    endRef.current?.scrollIntoView({ block: "end" });
+  }, [messages.length, streamingId]);
 
   if (messages.length === 0) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center px-6 text-center">
-        <p className="text-xs font-medium tracking-widest text-muted uppercase">Rick App</p>
+        <p className="text-xs font-medium tracking-widest text-muted uppercase">Rick App · matrix</p>
         <h1 className="mt-3 font-display text-4xl tracking-tight">El entorno arma el turno</h1>
         <p className="mt-4 max-w-md text-sm leading-relaxed text-muted">
-          Canon entra entero. Biblioteca, a mano. La sesión está aislada por dominio. Inspeccioná el
-          paquete. /olvidar pide confirmación y deja respaldo.
+          {home
+            ? "Mesa es eje casa: podés estar. Anti-invención de hechos se conserva."
+            : "Eje de trabajo: modo fáctico salvo verbo generativo. Canon entra entero."}{" "}
+          Trece secciones. CONTEXTO 2 vuelve. /olvidar pide confirmación.
           {locked ? " Candado puesto: Grok no gasta hasta desbloquear." : ""}
         </p>
       </div>
@@ -682,6 +1010,7 @@ function Composer({
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
+    if (window.matchMedia("(pointer: coarse)").matches) return;
     el.style.height = "auto";
     el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
   }, [value]);

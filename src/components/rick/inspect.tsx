@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { bankScore, runBank } from "@/lib/rick/bank";
 import { rates } from "@/lib/rick/govern";
 import { STATUS_LABEL, type Assembled, type EpistemicStatus } from "@/lib/rick/types";
 import { useActiveDomain, useRick } from "@/lib/rick/store";
@@ -74,8 +75,14 @@ export function InspectPanel() {
   const backups = useRick((s) => s.backups);
   const restoreBackup = useRick((s) => s.restoreBackup);
   const domain = useActiveDomain();
+  const diagPrev = useRick((s) => s.diagPrev);
+  const traces = useRick((s) => s.traces);
   const stats = rates(checks);
-  const [tab, setTab] = useState<"paquete" | "historial" | "chequeos" | "respaldos">("paquete");
+  const [tab, setTab] = useState<
+    "paquete" | "historial" | "chequeos" | "respaldos" | "gobierno" | "banco" | "traza"
+  >("paquete");
+  const bank = useMemo(() => runBank(), []);
+  const score = bankScore(bank);
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const selected = useMemo(
@@ -100,6 +107,9 @@ export function InspectPanel() {
             ["paquete", "Paquete"],
             ["historial", "Historial"],
             ["chequeos", "Chequeos"],
+            ["gobierno", "CONTEXTO 2"],
+            ["banco", "Banco"],
+            ["traza", "Traza"],
             ["respaldos", "Respaldos"],
           ] as const
         ).map(([id, label]) => (
@@ -179,6 +189,53 @@ export function InspectPanel() {
             ))}
           </ul>
         </>
+      ) : null}
+
+      {tab === "gobierno" ? (
+        diagPrev ? (
+          <pre className="whitespace-pre-wrap rounded-md bg-surface p-4 font-mono text-xs leading-relaxed text-fg shadow-[var(--shadow-border)]">
+            {diagPrev}
+          </pre>
+        ) : (
+          <p className="text-sm text-muted">Todavía no hay diagnóstico interno. Mandá un turno.</p>
+        )
+      ) : null}
+
+      {tab === "banco" ? (
+        <div className="flex flex-col gap-3">
+          <p className="text-sm text-muted">
+            {score.pass}/{score.total} verdes. El banco compara decisiones de gobierno, no texto del
+            modelo.
+          </p>
+          <ul className="flex flex-col gap-2">
+            {bank.map((s) => (
+              <li key={s.id} className="rounded-md bg-surface px-4 py-3 shadow-[var(--shadow-border)]">
+                <p className="text-xs uppercase text-muted">
+                  {s.id}
+                  {s.pass ? " · ok" : " · falla"}
+                </p>
+                <p className="mt-1 text-sm text-fg">{s.detail}</p>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
+      {tab === "traza" ? (
+        traces.length === 0 ? (
+          <p className="text-sm text-muted">Sin mutaciones. Ingest, promote, demote y /olvidar quedan acá.</p>
+        ) : (
+          <ul className="flex flex-col gap-2">
+            {traces.slice(0, 60).map((t) => (
+              <li key={t.id} className="rounded-md bg-surface px-4 py-3 shadow-[var(--shadow-border)]">
+                <p className="text-xs uppercase text-muted">
+                  {t.kind} · {new Date(t.at).toLocaleString("es-AR")}
+                </p>
+                <p className="mt-1 text-sm text-fg">{t.detail}</p>
+              </li>
+            ))}
+          </ul>
+        )
       ) : null}
 
       {tab === "respaldos" ? (
