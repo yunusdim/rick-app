@@ -52,7 +52,7 @@ import type { ViewId } from "@/lib/rick/types";
 import { computeVce } from "@/lib/rick/vce";
 import { cn, uid } from "@/lib/utils";
 import { watchKeyboard } from "@/lib/rick/keyboard";
-import { readMotor } from "@/lib/rick/motor";
+import { readMotor, motorHasVoice } from "@/lib/rick/motor";
 import { readOwnerKey } from "@/lib/rick/owner-key";
 
 const NAV: { id: ViewId; label: string; icon: typeof FileText }[] = [
@@ -114,6 +114,7 @@ export function RickApp() {
   const [unlocked, setUnlocked] = useState(false);
   const [serverGrok, setServerGrok] = useState<boolean | null>(null);
   const [hasOwnerKey, setHasOwnerKey] = useState(false);
+  const [motorId, setMotorId] = useState("xai");
   const [keyOpen, setKeyOpen] = useState(false);
   const [kb, setKb] = useState(0);
   const pendingRef = useRef<string | null>(null);
@@ -129,6 +130,7 @@ export function RickApp() {
 
   useEffect(() => {
     setHasOwnerKey(Boolean(readOwnerKey()));
+    setMotorId(readMotor()?.id ?? "xai");
     void fetch("/api/chat")
       .then((r) => r.json() as Promise<{ grok?: boolean }>)
       .then((body) => {
@@ -156,6 +158,7 @@ export function RickApp() {
   const identity = useRick((s) => s.identity);
   const hydrated = useRick((s) => s.hydrated);
   const home = isHomeAxis(domain.id);
+  const hasVoice = motorHasVoice(motorId);
   const grokReady = serverGrok === true || hasOwnerKey;
   const needsKey = serverGrok === false && !hasOwnerKey;
   const needsIdentity = grokReady && hydrated && !identity.trim();
@@ -490,7 +493,7 @@ export function RickApp() {
       }
 
       const finalText = useRick.getState().messages.find((m) => m.id === assistantId)?.content ?? "";
-      if (useRick.getState().autoSpeak && finalText.trim() && !finalText.startsWith("[BLOQUEADO]")) {
+      if (useRick.getState().autoSpeak && hasVoice && finalText.trim() && !finalText.startsWith("[BLOQUEADO]")) {
         try {
           await speaker.play(assistantId, finalText, PERSONAS[state.voice].voiceId);
         } catch {
@@ -498,7 +501,7 @@ export function RickApp() {
         }
       }
     },
-    [addChecks, addMessage, bumpTurns, bumpUsage, busy, patchMessage, serverGrok, setDiag, setLastAssembled, setMotor, setSummary, speaker],
+    [addChecks, addMessage, bumpTurns, bumpUsage, busy, hasVoice, patchMessage, serverGrok, setDiag, setLastAssembled, setMotor, setSummary, speaker],
   );
 
   const mic = useMic((text) => void sendText(text));
@@ -762,11 +765,13 @@ export function RickApp() {
                 {recorder.recording ? <Square className="size-4" /> : <Mic className="size-4" />}
               </Button>
             </Tooltip>
+            {hasVoice ? (
             <Tooltip content={autoSpeak ? "No leer en voz alta" : "Leer respuestas"}>
               <Button variant="ghost" size="iconSm" aria-label="Voz" onClick={() => setAutoSpeak(!autoSpeak)}>
                 {autoSpeak ? <Volume2 className="size-4" /> : <VolumeX className="size-4" />}
               </Button>
             </Tooltip>
+            ) : null}
           </header>
 
           {view === "mesa" ? (
@@ -827,6 +832,7 @@ export function RickApp() {
                 locked={locked}
                 home={home}
                 awaitingIdentity={needsIdentity}
+                canSpeak={hasVoice}
                 onSpeak={(id, content, v) => {
                   void speaker.play(id, content, PERSONAS[v].voiceId).catch(() => {
                     toast.error("No pude hablar ahora.");
@@ -945,6 +951,7 @@ export function RickApp() {
           setKeyOpen(false);
           const m = readMotor();
           if (m?.model) primeMotor(m.model);
+          if (m?.id) setMotorId(m.id);
           toast.success(`Motor ${m?.id ?? ""} en este navegador.`);
         }}
         onCancel={hasOwnerKey ? () => setKeyOpen(false) : undefined}
@@ -962,6 +969,7 @@ function MesaThread({
   locked,
   home,
   awaitingIdentity,
+  canSpeak,
   onSpeak,
   onStop,
 }: {
@@ -972,6 +980,7 @@ function MesaThread({
   locked: boolean;
   home: boolean;
   awaitingIdentity: boolean;
+  canSpeak: boolean;
   onSpeak: (id: string, content: string, voice: PersonaId) => void;
   onStop: () => void;
 }) {
@@ -1028,7 +1037,7 @@ function MesaThread({
                       <span className="caret-pulse ml-0.5 inline-block h-4 w-px bg-fg align-middle" />
                     ) : null}
                   </p>
-                  {body && m.id !== streamingId ? (
+                  {canSpeak && body && m.id !== streamingId ? (
                     <Button
                       variant="ghost"
                       size="sm"

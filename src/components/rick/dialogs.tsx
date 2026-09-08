@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { AttachButton } from "@/components/rick/attach";
-import { MOTOR_PRESETS, isKeyShape, readMotor, writeMotor } from "@/lib/rick/motor";
+import { MOTOR_PRESETS, isKeyShape, motorCapLabel, readMotor, writeMotor } from "@/lib/rick/motor";
 import { useRick } from "@/lib/rick/store";
 
 export function Modal({
@@ -297,7 +297,7 @@ export function ApiKeyDialog({
     <Modal
       open={open}
       title="Motor"
-      body="Cada uno trae su clave. El entorno arma; el motor solo genera texto. Queda en este navegador."
+      body="Si el motor es como Grok, tiene chat y voz. Si no, solo lo que ese motor trae. La clave queda en este navegador."
       onClose={onCancel ?? (() => undefined)}
       dismissible={Boolean(onCancel)}
     >
@@ -315,6 +315,7 @@ export function ApiKeyDialog({
               }
             >
               {p.name}
+              <span className="ml-1 text-[10px] text-subtle">{motorCapLabel(p.id)}</span>
             </button>
           ))}
         </div>

@@ -91,6 +91,16 @@ export function hasMotor(): boolean {
   return Boolean(readMotor()?.key);
 }
 
+export function motorHasVoice(id?: string): boolean {
+  const engine = id || readMotor()?.id || "";
+  const p = presetById(engine);
+  return Boolean(p && p.tts !== "none");
+}
+
+export function motorCapLabel(id: string): string {
+  return motorHasVoice(id) ? "chat · voz" : "chat";
+}
+
 export function motorHeaders(): HeadersInit {
   const m = readMotor();
   if (!m) return {};
