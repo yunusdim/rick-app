@@ -1,3 +1,5 @@
+import { ownerKeyHeaders } from "@/lib/rick/owner-key";
+
 export type WireMessage = { role: "user" | "assistant"; content: string };
 
 export async function streamChat(input: {
@@ -9,7 +11,7 @@ export async function streamChat(input: {
 }): Promise<{ text: string; model: string }> {
   const res = await fetch("/api/chat", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...ownerKeyHeaders() },
     body: JSON.stringify({
       system: input.system,
       temperature: input.temperature ?? 0.8,
@@ -71,7 +73,7 @@ export async function streamChat(input: {
 export async function speakText(input: { text: string; voiceId: string; signal?: AbortSignal }) {
   const res = await fetch("/api/speak", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...ownerKeyHeaders() },
     body: JSON.stringify({ text: input.text, voiceId: input.voiceId }),
     signal: input.signal,
   });

@@ -1,9 +1,7 @@
 import { useState, type FormEvent, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { AttachButton } from "@/components/rick/attach";
-import { useRick } from "@/lib/rick/store";
+import { isOwnerKeyShape, writeOwnerKey } from "@/lib/rick/owner-key";
 
 export function Modal({
   open,
@@ -230,45 +228,51 @@ export function DomainDialog({
   );
 }
 
-export function IdentityDialog({ open }: { open: boolean }) {
-  const setIdentity = useRick((s) => s.setIdentity);
-  const [draft, setDraft] = useState("");
+export function ApiKeyDialog({
+  open,
+  onSaved,
+}: {
+  open: boolean;
+  onSaved: () => void;
+}) {
+  const [value, setValue] = useState("");
   const [error, setError] = useState("");
 
   function submit(e: FormEvent) {
     e.preventDefault();
-    const text = draft.trim();
-    if (text.length < 8) {
-      setError("Pegá o adjuntá quién es. Mínimo unas líneas.");
+    const key = value.trim();
+    if (!isOwnerKeyShape(key)) {
+      setError("Tiene que empezar con xai- y ser la clave de consola.x.ai.");
       return;
     }
-    setIdentity(text);
-    setDraft("");
+    if (!writeOwnerKey(key)) {
+      setError("No pude guardarla en este navegador.");
+      return;
+    }
+    setValue("");
     setError("");
+    onSaved();
   }
 
   return (
     <Modal
       open={open}
-      title="¿Quién sos?"
-      body="Antes de hablar, la personalidad. No es un tema de la mesa: es identidad, y va con Rick a todos los ejes."
+      title="API key de xAI"
+      body="Este sitio no trae Grok conectado. Pegá tu clave para que hable. Queda en este navegador, no en el chat."
       onClose={() => undefined}
       dismissible={false}
     >
       <form onSubmit={submit} className="flex flex-col gap-3">
-        <Textarea
-          rows={7}
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          placeholder="Pegá el texto de la personalidad."
+        <Input
+          type="password"
+          autoComplete="off"
           autoFocus
-          className="min-h-32 rounded-md bg-surface-2 px-3 py-2 text-sm"
+          placeholder="xai-…"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
         />
         {error ? <p className="text-xs text-danger">{error}</p> : null}
-        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <AttachButton domainId="mesa" kind="identity" label="Adjuntar archivo" />
-          <Button type="submit">Entrar</Button>
-        </div>
+        <Button type="submit">Entrar</Button>
       </form>
     </Modal>
   );

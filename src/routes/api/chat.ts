@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
+import { resolveApiKey, envGrokReady } from "@/lib/rick/resolve-key.server";
 import { allowSpend, clientIp } from "@/lib/rick/spend.server";
 
 const Body = z.object({
@@ -18,11 +19,12 @@ const Body = z.object({
 export const Route = createFileRoute("/api/chat")({
   server: {
     handlers: {
+      GET: async () => Response.json({ grok: envGrokReady() }),
       POST: async ({ request }) => {
-        const apiKey = process.env.XAI_API_KEY;
+        const apiKey = resolveApiKey(request);
         if (!apiKey) {
           return Response.json(
-            { error: "Grok no está disponible en este momento." },
+            { error: "Falta la API key de xAI. Pegala al abrir." },
             { status: 503 },
           );
         }
@@ -85,9 +87,11 @@ export const Route = createFileRoute("/api/chat")({
         if (!upstream.ok || !upstream.body) {
           const status = upstream.status;
           const fallback =
-            status === 429
-              ? "Grok está saturado. Probá en un momento."
-              : "Grok no pudo responder. Probá de nuevo.";
+            status === 401 || status === 403
+              ? "La API key no sirve. Revisala."
+              : status === 429
+                ? "Grok está saturado. Probá en un momento."
+                : "Grok no pudo responder. Probá de nuevo.";
           return Response.json({ error: fallback }, { status: 502 });
         }
 

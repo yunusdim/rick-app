@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
+import { resolveApiKey } from "@/lib/rick/resolve-key.server";
 import { allowSpend, clientIp } from "@/lib/rick/spend.server";
 
 const Body = z.object({
@@ -11,10 +12,10 @@ export const Route = createFileRoute("/api/speak")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const apiKey = process.env.XAI_API_KEY;
+        const apiKey = resolveApiKey(request);
         if (!apiKey) {
           return Response.json(
-            { error: "La voz no está disponible ahora." },
+            { error: "Falta la API key de xAI. Pegala al abrir." },
             { status: 503 },
           );
         }
@@ -66,8 +67,9 @@ export const Route = createFileRoute("/api/speak")({
         }
 
         if (!upstream.ok) {
+          const bad = upstream.status === 401 || upstream.status === 403;
           return Response.json(
-            { error: "No pude generar la voz. Probá de nuevo." },
+            { error: bad ? "La API key no sirve. Revisala." : "No pude generar la voz. Probá de nuevo." },
             { status: 502 },
           );
         }
