@@ -30,7 +30,8 @@ Candado de gasto: pin SHA-256(salt:pin), salt 16 bytes hex. Sesión desbloqueada
 
 3. IDENTIDAD / CANON / BIBLIOTECA
 identity: string global, setIdentity slice(0, 40000). Todos los ejes. No es canon.
-Doc.kind "canon": tema del eje. Verbatim. Entra a CANONICAL.
+El doc id=frame (Rick App — reconstrucción v9) es canon de arranque, hábitat de la entidad. Se pisa en cada hydrate. Entra a CANONICAL en todos los ejes con etiqueta [CANONICAL · hábitat · …]. No es identidad ni tema. No se borra ni se demotea.
+Doc.kind "canon" (id≠frame): tema del eje. Verbatim.
 Doc.kind "library": recuperado por solape o pinned a mano. No es canon.
 Clip del compositor y drop en Mesa → kind canon del dominio activo.
 Cargar personalidad → ingestIdentity, concatena a identity con ---.
@@ -43,14 +44,14 @@ Import: 20_000 chars, 12 MiB, PDF ≤ 40 páginas. Truncado avisa.
 HOME_AXIS = "mesa". Nombre 1–40, letras/números/espacio/._- ; no ⟦⟧[] ni CANON|IDENTIDAD|RECORRIDO|SESION|BIBLIOTECA.
 Mesa: eje casa. Sin MODO FACTICO. Anti-invención de hechos, datos del operador y capacidades del sistema se conserva. Preferencias no anclan a canon.
 Otro eje: factual = !home && !isGenerative(turno). Generativos: genera/generar/generemos, expandi/expandir/expandamos, imagina/imaginar/imaginemos, propone/proponer/propongamos, inventa/inventar, crea/crear/creemos, planea/planear/planeemos (NFD, set exacto de tokens).
-Sin canon en el eje: sección ABSTENCION + CANONICAL vacío. Frase de ausencia: "no lo tengo en el canon de este eje".
+Sin canon de tema en el eje (y no es Mesa): sección ABSTENCION + CANONICAL igual trae el hábitat. Frase de ausencia: "no lo tengo en el canon de este eje".
 Recorrido: pushRecorrido, mapa no territorio. Texto con tasas de deriva/léxico/invención. No se narra.
 
 5. ENSAMBLADO (assemble)
 Orden canónico (orderOk): RICK RUNTIME v9 · IDENTIDAD · RECORRIDO · DRIFT STATUS · CANONICAL · META · SESSION HISTORY · REFERENTES · MEMORY FACTS · CONTEXTO 2 · INSTRUCTIONS · INPUT · FOCUS.
 Contrato (validateContract) exige presentes y bytes>0: RICK RUNTIME v9, IDENTIDAD, RECORRIDO, DRIFT STATUS, CANONICAL, SESSION HISTORY, MEMORY FACTS, INSTRUCTIONS, INPUT, FOCUS. META, ABSTENCION, REFERENTES, CONTEXTO 2 son opcionales.
 Cada bloque: primera línea "estatus: " + STATUS_LABEL[status]. Marcadores ### NOMBRE ###. Neutralize: ⟦⟧→‹› y ###...### del contenido se envuelve.
-CANONICAL: docs kind=canon del eje, no deprecated. frame se clippea a ENTITY_MAX_BYTES (20000); el resto a 2500. Lista join slice 24000. Etiqueta [CANONICAL · {eje} · {título}].
+CANONICAL: siempre el frame como hábitat (clip 20000). Después, temas kind=canon del eje, no deprecated, id≠frame, clip 2500. Lista join slice 24000. Etiqueta [CANONICAL · hábitat · {título}] y [CANONICAL · {eje} · {título}].
 SESSION HISTORY: ventana SESSION_INJECT_WINDOW=5 + resumen extractivo clip 1800. Turnos clip 900.
 MEMORY FACTS: biblioteca a mano (HAND_WINDOW=8 turnos) + top-2 library por overlap + agenda del eje con start ≥ ahora-1h, máx 6. Si nada: "- none".
 CONTEXTO 2: lastDiag formateado. Orientación interna. No narrar.

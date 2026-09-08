@@ -14,7 +14,7 @@ import type {
   RickMessage,
 } from "@/lib/rick/types";
 import { ENTITY_MAX_BYTES, HAND_WINDOW, SESSION_INJECT_WINDOW, STATUS_LABEL } from "@/lib/rick/types";
-import { FRAME_ID } from "@/lib/rick/blueprint";
+import { FRAME_CANON, FRAME_ID } from "@/lib/rick/blueprint";
 import { uid } from "@/lib/utils";
 
 const MARK = {
@@ -80,7 +80,7 @@ export function assemble(input: {
     section(
       "RICK RUNTIME v9",
       "contrato",
-      `AXES ACTIVE: ${input.domain.name}\nEl entorno arma el turno. El modelo solo genera texto. El instrumento de diagnóstico es este paquete, no la respuesta.`,
+      `AXES ACTIVE: ${input.domain.name}\nEl entorno arma el turno. El modelo solo genera texto. El instrumento de diagnóstico es este paquete, no la respuesta.\nVivís en Rick App. El canon de arranque «Rick App — reconstrucción v9» es el hábitat: dónde estás, no quién sos.`,
     ),
   );
 
@@ -107,34 +107,42 @@ export function assemble(input: {
     section("DRIFT STATUS", "deriva", input.driftLine || "LOW · observe · muestra insuficiente"),
   );
 
-  const canonDocs = input.docs.filter(
-    (d) => d.kind === "canon" && d.domainId === input.domain.id && !d.deprecated,
+  const frame = input.docs.find((d) => d.id === FRAME_ID) ?? FRAME_CANON;
+  const axisCanon = input.docs.filter(
+    (d) =>
+      d.kind === "canon" &&
+      d.domainId === input.domain.id &&
+      !d.deprecated &&
+      d.id !== FRAME_ID,
   );
-  if (canonDocs.length) {
-    const listed = canonDocs
-      .map((d) => {
-        const cap = d.id === FRAME_ID ? ENTITY_MAX_BYTES : 2500;
-        return `[CANONICAL · ${input.domain.name} · ${d.title}]\n${clip(d.body, cap)}`;
-      })
-      .join("\n\n")
-      .slice(0, 24000);
-    sections.push(
-      section(
-        "CANONICAL",
-        "canon",
-        `Temas canónicos en ${input.domain.name}: ${canonDocs.length}. Son el material de la charla, no la personalidad. Contá solo estos.\n\n${listed}`,
-      ),
-    );
-  } else {
+  const listed = [
+    `[CANONICAL · hábitat · ${frame.title}]\n${clip(frame.body, ENTITY_MAX_BYTES)}`,
+    ...axisCanon.map(
+      (d) => `[CANONICAL · ${input.domain.name} · ${d.title}]\n${clip(d.body, 2500)}`,
+    ),
+  ]
+    .join("\n\n")
+    .slice(0, 24000);
+
+  if (!axisCanon.length && !home) {
     sections.push(
       section(
         "ABSTENCION",
         "abstencion",
-        `Ningún documento canónico en ${input.domain.name}. Prohibido inventar hechos de este dominio, del operador o del sistema. No simules documentos. Preguntá o declará que ${ABSENCE_PHRASE}.`,
+        `Ningún documento canónico de tema en ${input.domain.name}. El hábitat (reconstrucción v9) sí está. Prohibido inventar hechos de este dominio, del operador o del sistema. No simules documentos. Preguntá o declará que ${ABSENCE_PHRASE}.`,
       ),
     );
-    sections.push(section("CANONICAL", "canon", `(ningún documento canónico en ${input.domain.name})`));
   }
+
+  sections.push(
+    section(
+      "CANONICAL",
+      "canon",
+      axisCanon.length
+        ? `Hábitat siempre presente. Temas de ${input.domain.name}: ${axisCanon.length}. Contá solo lo etiquetado CANONICAL.\n\n${listed}`
+        : `Hábitat siempre presente. Ningún tema de ${input.domain.name}.\n\n${listed}`,
+    ),
+  );
 
   if (input.meta) {
     sections.push(section("META", "contrato", input.meta));

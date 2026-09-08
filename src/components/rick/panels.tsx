@@ -9,6 +9,7 @@ import { AttachButton, DropCanvas } from "@/components/rick/attach";
 import { InspectPanel } from "@/components/rick/inspect";
 import { deleteRecording, listRecordingMeta, type RecordingMeta } from "@/lib/rick/idb";
 import { HAND_WINDOW } from "@/lib/rick/types";
+import { FRAME_ID } from "@/lib/rick/blueprint";
 import { useActiveDomain, useRick } from "@/lib/rick/store";
 import { cn } from "@/lib/utils";
 
@@ -156,10 +157,10 @@ export function CanonPanel() {
   const [tick, setTick] = useState(0);
 
   const mine = docs.filter((d) => d.domainId === domain.id);
-  const topics = mine.filter((d) => d.id !== "frame" && d.kind === "canon" && !d.deprecated);
+  const topics = mine.filter((d) => d.id !== FRAME_ID && d.kind === "canon" && !d.deprecated);
   const library = mine.filter((d) => d.kind === "library" && !d.deprecated);
   const retired = mine.filter((d) => d.deprecated);
-  const frame = mine.find((d) => d.id === "frame");
+  const frame = docs.find((d) => d.id === FRAME_ID);
 
   function save() {
     if (!title.trim() || !body.trim()) {
@@ -184,9 +185,22 @@ export function CanonPanel() {
         <header>
           <h2 className="font-display text-3xl tracking-tight">Canon</h2>
           <p className="mt-1 text-sm text-muted">
-            Temas de la charla, y aparte la personalidad. Archivos: PDF, Word, Markdown o texto.
+            Hábitat de arranque, personalidad, y temas del eje. El marco no se borra.
           </p>
         </header>
+
+        {frame ? (
+          <section className="rounded-xl bg-surface p-4 shadow-[var(--shadow-border)]">
+            <p className="text-xs font-medium tracking-widest text-muted uppercase">Hábitat · canon de arranque</p>
+            <p className="mt-1 text-xs text-subtle">
+              Dónde vive la entidad. Entra a CANONICAL en todos los ejes. No es identidad ni un tema.
+            </p>
+            <h3 className="mt-3 text-sm font-medium">{frame.title}</h3>
+            <pre className="mt-2 max-h-64 overflow-y-auto whitespace-pre-wrap text-xs leading-relaxed text-muted">
+              {frame.body}
+            </pre>
+          </section>
+        ) : null}
 
         <section className="rounded-xl bg-surface p-4 shadow-[var(--shadow-border)]">
           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -378,10 +392,6 @@ export function CanonPanel() {
               ))}
             </ul>
           </section>
-        ) : null}
-
-        {frame ? (
-          <p className="text-xs text-subtle">Marco del sistema presente. No es un tema de la charla.</p>
         ) : null}
       </div>
     </DropCanvas>

@@ -195,8 +195,15 @@ export function runBank(): Scenario[] {
   check(
     "frame_001",
     framed.system.includes("RICK APP — RECONSTRUCCIÓN v9") &&
-      framed.system.includes("[CANONICAL · Mesa · Rick App — reconstrucción v9]"),
-    "el frame de fábrica entra entero a CANONICAL",
+      framed.system.includes("[CANONICAL · hábitat · Rick App — reconstrucción v9]"),
+    "el frame de fábrica entra entero a CANONICAL como hábitat",
+  );
+  const framedWork = pack({ domain: WORK, docs: [] });
+  check(
+    "frame_002",
+    framedWork.system.includes("[CANONICAL · hábitat · Rick App — reconstrucción v9]") &&
+      framedWork.system.includes("ABSTENCION"),
+    "en otro eje el hábitat sigue y el tema vacío declara abstención",
   );
 
   return rows;
