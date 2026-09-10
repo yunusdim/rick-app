@@ -31,4 +31,4 @@ npm run build
 npx tsx -e "import { runBank, bankScore } from './src/lib/rick/bank.ts'; console.log(bankScore(runBank()))"
 ```
 
-Tag de freeze: `freeze-v9-2026-09-08`. El informe confronta `b1df8bb`. `main` posterior enmienda presencia vs integridad de canon y que recargar no sea `/drift`. La foto citada: `git checkout b1df8bb`.
+Tag de freeze: `freeze-v9-2026-09-08`. El informe confronta `b1df8bb`. `main` posterior enmienda presencia vs integridad, persistencia del bloqueo, admisión del stream, contrato de llamada, huella documental, compacción por eje, una pestaña escritora y cápsula exportable. La foto citada: `git checkout b1df8bb`.

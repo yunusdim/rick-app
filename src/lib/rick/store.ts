@@ -25,6 +25,19 @@ import type {
 import { EMPTY_DIAG } from "@/lib/rick/diag";
 import { FRAME_CANON, FRAME_ID } from "@/lib/rick/blueprint";
 import { acceptReceived } from "@/lib/rick/integrity";
+import { contentHash } from "@/lib/rick/hash";
+import { isWriter } from "@/lib/rick/writer";
+import { makeCapsule, parseCapsule } from "@/lib/rick/capsule";
+
+function keepPerAxis(messages: RickMessage[], n: number) {
+  const groups = new Map<string, RickMessage[]>();
+  for (const m of messages) {
+    const g = groups.get(m.domainId) ?? [];
+    g.push(m);
+    groups.set(m.domainId, g);
+  }
+  return [...groups.values()].flatMap((g) => g.slice(-n));
+}
 
 const MESA: Domain = {
   id: "mesa",
@@ -44,7 +57,19 @@ function flushPersist() {
     persistTimer = undefined;
   }
   if (persistValue == null || typeof localStorage === "undefined") return;
+  if (!isWriter()) return;
   try {
+    const incoming = JSON.parse(persistValue) as { state?: { persistRev?: number } };
+    const prevRaw = localStorage.getItem(persistName);
+    if (prevRaw) {
+      const prev = JSON.parse(prevRaw) as { state?: { persistRev?: number } };
+      const prevRev = prev.state?.persistRev ?? 0;
+      const nextRev = incoming.state?.persistRev ?? 0;
+      if (prevRev > nextRev) {
+        reportPersist(false, "otra pestaña tiene una revisión más nueva");
+        return;
+      }
+    }
     localStorage.setItem(persistName, persistValue);
     reportPersist(true);
   } catch {
@@ -104,6 +129,7 @@ type RickState = {
   pinSalt: string;
   pinHash: string;
   summaries: Record<string, string>;
+  summaryCursors: Record<string, string>;
   diagPrev: string;
   lastDiag: DiagPrev;
   focus: FocusState | null;
@@ -136,12 +162,12 @@ type RickState = {
   pinToHand: (docId: string) => void;
   unpinFromHand: (docId: string) => void;
   addMessage: (msg: Omit<RickMessage, "id" | "createdAt"> & { id?: string }) => string;
-  patchMessage: (id: string, content: string) => void;
+  patchMessage: (id: string, content: string, admitted?: boolean) => void;
   removeMessage: (id: string) => void;
   addEvent: (event: Omit<AgendaEvent, "id">) => void;
   removeEvent: (id: string) => void;
   addChecks: (rows: GovCheck[]) => void;
-  setSummary: (domainId: string, text: string) => void;
+  setSummary: (domainId: string, text: string, cursor?: string) => void;
   setDiag: (diag: DiagPrev, text: string) => void;
   setFocus: (focus: FocusState | null) => void;
   setMotor: (last: string) => { blocked: boolean; first: boolean };
@@ -177,6 +203,7 @@ export const useRick = create<RickState>()(
       pinSalt: "",
       pinHash: "",
       summaries: {},
+      summaryCursors: {},
       diagPrev: "",
       lastDiag: EMPTY_DIAG,
       focus: null,
@@ -239,10 +266,14 @@ export const useRick = create<RickState>()(
           return { ok: false, reason: accepted.reason };
         }
         const stored = accepted.stored;
+        const fingerprint = contentHash(stored);
         const normalized = normalizeContent(`${doc.title} ${stored}`);
         const hash = nodeHash(doc.domainId, doc.title, stored);
         const exists = get().docs.find(
-          (d) => d.hash === hash && d.domainId === doc.domainId && !d.deprecated,
+          (d) =>
+            d.domainId === doc.domainId &&
+            !d.deprecated &&
+            (d.contentHash === fingerprint || (!d.contentHash && d.hash === hash)),
         );
         if (exists) {
           get().addTrace("INGEST DUPLICADO", `${exists.id} tipo=${exists.kind} axis=${doc.domainId}`);
@@ -255,6 +286,7 @@ export const useRick = create<RickState>()(
           createdAt: Date.now(),
           body: stored,
           hash,
+          contentHash: fingerprint,
           normalized,
           usageCount: 0,
           lastUsedAt: 0,
@@ -327,24 +359,31 @@ export const useRick = create<RickState>()(
         set({ handPins: get().handPins.filter((p) => p.docId !== docId) }),
       addMessage: (msg) => {
         const id = msg.id ?? uid();
+        const admitted = msg.admitted ?? msg.role === "user";
         set({
-          messages: [
-            ...get().messages,
-            {
-              id,
-              domainId: msg.domainId,
-              role: msg.role,
-              content: msg.content,
-              voice: msg.voice,
-              createdAt: Date.now(),
-            },
-          ].slice(-160),
+          messages: keepPerAxis(
+            [
+              ...get().messages,
+              {
+                id,
+                domainId: msg.domainId,
+                role: msg.role,
+                content: msg.content,
+                voice: msg.voice,
+                createdAt: Date.now(),
+                admitted,
+              },
+            ],
+            160,
+          ),
         });
         return id;
       },
-      patchMessage: (id, content) => {
+      patchMessage: (id, content, admitted) => {
         set({
-          messages: get().messages.map((m) => (m.id === id ? { ...m, content } : m)),
+          messages: get().messages.map((m) =>
+            m.id === id ? { ...m, content, admitted: admitted ?? m.admitted } : m,
+          ),
         });
       },
       removeMessage: (id) => set({ messages: get().messages.filter((m) => m.id !== id) }),
@@ -355,8 +394,14 @@ export const useRick = create<RickState>()(
       addChecks: (rows) => {
         set({ checks: [...rows, ...get().checks].slice(0, 240) });
       },
-      setSummary: (domainId, text) =>
-        set({ summaries: { ...get().summaries, [domainId]: text } }),
+      setSummary: (domainId, text, cursor) =>
+        set({
+          summaries: { ...get().summaries, [domainId]: text },
+          summaryCursors:
+            cursor !== undefined
+              ? { ...get().summaryCursors, [domainId]: cursor }
+              : get().summaryCursors,
+        }),
       setDiag: (lastDiag, diagPrev) => set({ lastDiag, diagPrev }),
       setFocus: (focus) => set({ focus }),
       setMotor: (last) => {
@@ -386,7 +431,7 @@ export const useRick = create<RickState>()(
           driftReason: driftBlocked ? reason ?? get().driftReason : "",
         }),
       forgetActive: () => {
-        const { activeDomainId, domains, messages, backups, summaries } = get();
+        const { activeDomainId, domains, messages, backups, summaries, summaryCursors } = get();
         const domain = domains.find((d) => d.id === activeDomainId);
         const thread = messages.filter((m) => m.domainId === activeDomainId);
         if (!domain || thread.length === 0) return null;
@@ -396,20 +441,25 @@ export const useRick = create<RickState>()(
           domainName: domain.name,
           at: Date.now(),
           messages: thread,
+          summary: summaries[activeDomainId] ?? "",
+          cursor: summaryCursors[activeDomainId] ?? "",
         };
         const nextSum = { ...summaries };
+        const nextCur = { ...summaryCursors };
         delete nextSum[activeDomainId];
+        delete nextCur[activeDomainId];
         set({
           messages: messages.filter((m) => m.domainId !== activeDomainId),
           lastAssembled: null,
           backups: [backup, ...backups].slice(0, 12),
           summaries: nextSum,
+          summaryCursors: nextCur,
         });
         get().addTrace("OLVIDO", `conversacion de ${domain.name} borrada`);
         return backup;
       },
       restoreBackup: (id) => {
-        const { backups, messages } = get();
+        const { backups, messages, summaries, summaryCursors } = get();
         const backup = backups.find((b) => b.id === id);
         if (!backup) return false;
         const others = messages.filter((m) => m.domainId !== backup.domainId);
@@ -417,6 +467,8 @@ export const useRick = create<RickState>()(
           messages: [...others, ...backup.messages],
           activeDomainId: backup.domainId,
           view: "mesa",
+          summaries: { ...summaries, [backup.domainId]: backup.summary ?? "" },
+          summaryCursors: { ...summaryCursors, [backup.domainId]: backup.cursor ?? "" },
         });
         return true;
       },
@@ -438,37 +490,22 @@ export const useRick = create<RickState>()(
         domains: s.domains,
         activeDomainId: s.activeDomainId,
         docs: s.docs,
-        messages: s.messages.slice(-80),
+        messages: keepPerAxis(s.messages, 80),
         events: s.events,
         checks: s.checks.slice(0, 80),
         handPins: s.handPins,
-        assemblyHistory: s.assemblyHistory.slice(0, 8).map((a) => ({
-          id: a.id,
-          at: a.at,
-          domainId: a.domainId,
-          domainName: a.domainName,
-          userTurn: a.userTurn,
-          bytes: a.bytes,
-          system: a.system.slice(0, 4000),
-          sections: a.sections.map((sec) => ({
-            name: sec.name,
-            status: sec.status,
-            bytes: sec.bytes,
-            body: sec.body.slice(0, 900),
-          })),
-          factual: a.factual,
-          home: a.home,
+        assemblyHistory: s.assemblyHistory.slice(0, 4).map((a) => ({
+          ...a,
+          partial: false,
         })),
-        backups: s.backups.slice(0, 8).map((b) => ({
-          ...b,
-          messages: b.messages.slice(-40),
-        })),
+        backups: s.backups.slice(0, 8),
         voice: s.voice,
         autoSpeak: s.autoSpeak,
         lockEnabled: s.lockEnabled,
         pinSalt: s.pinSalt,
         pinHash: s.pinHash,
         summaries: s.summaries,
+        summaryCursors: s.summaryCursors,
         diagPrev: s.diagPrev,
         lastDiag: s.lastDiag,
         focus: s.focus,
@@ -479,6 +516,7 @@ export const useRick = create<RickState>()(
         driftReason: s.driftReason,
         traces: s.traces.slice(0, 80),
         recorridoSeq: s.recorridoSeq,
+        persistRev: Date.now(),
       }),
       onRehydrateStorage: () => (state) => state?.setHydrated(),
     },
@@ -498,6 +536,9 @@ export function rehydrateRick() {
   rehydrateStarted = true;
   void Promise.resolve(useRick.persist.rehydrate()).finally(() => {
     syncFrameCanon();
+    if (typeof navigator !== "undefined" && navigator.storage?.persist) {
+      void navigator.storage.persist();
+    }
     if (!useRick.getState().hydrated) useRick.getState().setHydrated();
   });
 }
@@ -509,6 +550,51 @@ export function syncFrameCanon() {
   const current = docs.find((d) => d.id === FRAME_ID);
   if (current?.body === FRAME_CANON.body && current.title === FRAME_CANON.title) return;
   useRick.setState({ docs: [{ ...FRAME_CANON }, ...others] });
+}
+
+export function exportInstance() {
+  const s = useRick.getState();
+  return makeCapsule({
+    identity: s.identity,
+    domains: s.domains,
+    activeDomainId: s.activeDomainId,
+    docs: s.docs,
+    messages: s.messages,
+    events: s.events,
+    summaries: s.summaries,
+    summaryCursors: s.summaryCursors,
+    focus: s.focus,
+    driftBlocked: s.driftBlocked,
+    driftReason: s.driftReason,
+    motorRef: s.motorRef,
+    motorLast: s.motorLast,
+    motorBlocked: s.motorBlocked,
+    backups: s.backups,
+  });
+}
+
+export function importInstance(raw: string): { ok: true } | { ok: false; reason: string } {
+  const parsed = parseCapsule(raw);
+  if (!parsed.ok) return parsed;
+  const d = parsed.data;
+  useRick.setState({
+    identity: d.identity,
+    domains: d.domains,
+    activeDomainId: d.activeDomainId,
+    docs: d.docs,
+    messages: d.messages,
+    events: d.events,
+    summaries: d.summaries,
+    summaryCursors: d.summaryCursors,
+    focus: d.focus,
+    driftBlocked: d.driftBlocked,
+    driftReason: d.driftReason,
+    motorRef: d.motorRef,
+    motorLast: d.motorLast,
+    motorBlocked: d.motorBlocked,
+    backups: d.backups,
+  });
+  return { ok: true };
 }
 
 export function whenRickReady(): Promise<void> {

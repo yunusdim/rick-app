@@ -63,5 +63,5 @@ export function resolveMotor(request: Request): ResolvedMotor | null {
   const preset = MOTOR_PRESETS.find((p) => p.id === engine);
   const finalModel = model || preset?.model || "";
   if (!finalModel) return null;
-  return { key, base: resolved.base, model: finalModel, kind: resolved.kind, engine, tts: preset?.tts ?? "openai" };
+  return { key, base: resolved.base, model: finalModel, kind: resolved.kind, engine, tts: preset?.tts ?? "unknown" };
 }

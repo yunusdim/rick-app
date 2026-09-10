@@ -5,7 +5,7 @@ import { bankScore, runBank } from "@/lib/rick/bank";
 import { rates } from "@/lib/rick/govern";
 import { STATUS_LABEL, type Assembled, type EpistemicStatus } from "@/lib/rick/types";
 import { RICK_BUILD } from "@/lib/rick/build";
-import { useActiveDomain, useRick } from "@/lib/rick/store";
+import { exportInstance, importInstance, useActiveDomain, useRick } from "@/lib/rick/store";
 import { cn } from "@/lib/utils";
 
 function Badge({ status }: { status: EpistemicStatus }) {
@@ -30,7 +30,7 @@ function PackageView({ assembled }: { assembled: Assembled }) {
       <div className="flex flex-wrap items-center gap-2 text-xs text-muted">
         <span className="tabular-nums">{assembled.bytes} bytes</span>
         <span>·</span>
-        <span>{assembled.domainName}</span>
+        <span>{assembled.partial ? "parcial" : "íntegro"}</span>
         <span>·</span>
         <span>{new Date(assembled.at).toLocaleString("es-AR")}</span>
         <Button
@@ -108,6 +108,43 @@ export function InspectPanel() {
           Código {RICK_BUILD}. {persistOk ? "Persistencia confirmada." : persistError || "Persistencia no confirmada."}
           {driftBlocked ? ` · deriva bloqueada${driftReason ? ` (${driftReason})` : ""}` : ""}
         </p>
+        <div className="mt-3 flex gap-2">
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => {
+              const blob = new Blob([JSON.stringify(exportInstance(), null, 2)], { type: "application/json" });
+              const a = document.createElement("a");
+              a.href = URL.createObjectURL(blob);
+              a.download = "rick-capsula.json";
+              a.click();
+              toast.success("Cápsula exportada. Sin claves.");
+            }}
+          >
+            Exportar
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => {
+              const input = document.createElement("input");
+              input.type = "file";
+              input.accept = "application/json";
+              input.onchange = () => {
+                const file = input.files?.[0];
+                if (!file) return;
+                void file.text().then((raw) => {
+                  const r = importInstance(raw);
+                  if (!r.ok) toast.error(r.reason);
+                  else toast.success("Cápsula restaurada.");
+                });
+              };
+              input.click();
+            }}
+          >
+            Importar
+          </Button>
+        </div>
       </header>
 
       <div className="flex gap-1 overflow-x-auto pb-1">

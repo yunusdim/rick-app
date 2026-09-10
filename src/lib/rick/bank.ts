@@ -14,6 +14,11 @@ import { RICK_BUILD } from "@/lib/rick/build";
 import { turnMayCall } from "@/lib/rick/gates";
 import { isStaleBuild } from "@/lib/rick/update";
 import { acceptReceived, packCanon } from "@/lib/rick/integrity";
+import { admitReply } from "@/lib/rick/admit";
+import { contentHash } from "@/lib/rick/hash";
+import { sha256Hex } from "@/lib/rick/sha256";
+import { transportOk, MESSAGE_MAX_CHARS } from "@/lib/rick/transport";
+import { replayTurn } from "@/lib/rick/replay";
 import type { Domain, RickMessage } from "@/lib/rick/types";
 
 export type Scenario = { id: string; pass: boolean; detail: string };
@@ -254,6 +259,53 @@ export function runBank(): Scenario[] {
 
   check("update_001", isStaleBuild(null) === false && isStaleBuild(RICK_BUILD) === false, "mismo código no es stale");
   check("update_002", isStaleBuild("otro") === true, "código distinto declara stale");
+
+  check("hash_sha_001", sha256Hex("abc") === "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad", "sha256 abc");
+  check(
+    "hash_doc_001",
+    contentHash("x>0") !== contentHash("x<0") && nodeHash("obra", "t", "x>0") === nodeHash("obra", "t", "x<0"),
+    "huella original distinta; léxico igual",
+  );
+
+  const aborted = admitReply({ text: "hola parcial", stop: "abort", userTurn: "hola", lastAssistant: "" });
+  check("admit_001", aborted.status === "rejected", "abort no admite");
+  const empty = admitReply({ text: "", stop: "end_turn", userTurn: "hola", lastAssistant: "" });
+  check("admit_002", empty.status === "rejected", "vacía no admite");
+  const okStop = admitReply({
+    text: "una respuesta suficientemente larga y distinta del input",
+    stop: "end_turn",
+    userTurn: "otra cosa",
+    lastAssistant: "",
+  });
+  check("admit_003", okStop.status === "admitted", "end_turn + enforcer PASS admite");
+
+  const over = transportOk({ system: "x", messages: [{ content: "y".repeat(MESSAGE_MAX_CHARS + 1) }] });
+  check("trans_001", !over.ok, "mensaje largo se rechaza antes del motor");
+
+  const many = users(["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l"]);
+  const s1 = maybeSummarize({ messages: many, previous: "", cursor: "", canonText: "canon" });
+  const s2 = maybeSummarize({ messages: many, previous: s1.summary, cursor: s1.cursor, canonText: "canon" });
+  check("summary_003", s2.reason === "idempotente" && s2.summary === s1.summary, "mismo intervalo no duplica");
+
+  const packedDup = pack();
+  const dupSections = [...packedDup.sections, packedDup.sections[0]];
+  const dupContract = validateContract(dupSections);
+  check("orden_001", !dupContract.ok && dupContract.detail.includes("duplicada"), "sección duplicada corta");
+
+  const replayPartial = replayTurn({
+    build: "x",
+    at: 1,
+    assembled: packedDup,
+    userTurn: "hola",
+    reply: "hola",
+    stop: "end_turn",
+    driftRisk: "LOW",
+    driftBlocked: false,
+    motorBlocked: false,
+    lastAssistant: "",
+    partial: true,
+  });
+  check("replay_001", !replayPartial.ok, "registro parcial no se presenta como exacto");
 
   return rows;
 }

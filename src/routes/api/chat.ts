@@ -3,18 +3,19 @@ import { z } from "zod";
 import { envGrokReady, resolveMotor } from "@/lib/rick/resolve-key.server";
 import { fetchUpstream, tokenFromUpstream } from "@/lib/rick/upstream.server";
 import { allowSpend, clientIp } from "@/lib/rick/spend.server";
+import { HISTORY_MAX, transportOk } from "@/lib/rick/transport";
 
 const Body = z.object({
-  system: z.string().max(32000),
+  system: z.string(),
   temperature: z.number().min(0).max(1.5).optional(),
   messages: z
     .array(
       z.object({
         role: z.enum(["user", "assistant"]),
-        content: z.string().max(4000),
+        content: z.string(),
       }),
     )
-    .max(24),
+    .max(HISTORY_MAX),
 });
 
 export const Route = createFileRoute("/api/chat")({
@@ -49,10 +50,11 @@ export const Route = createFileRoute("/api/chat")({
           return Response.json({ error: "Pedido inválido." }, { status: 400 });
         }
 
-        const history = parsed.data.messages
-          .filter((m) => m.content.trim().length > 0)
-          .slice(-16)
-          .map((m) => ({ role: m.role, content: m.content.trim().slice(0, 2500) }));
+        const history = parsed.data.messages.filter((m) => m.content.trim().length > 0);
+        const gate = transportOk({ system: parsed.data.system, messages: history });
+        if (!gate.ok) {
+          return Response.json({ error: gate.detail }, { status: 400 });
+        }
 
         if (!history.some((m) => m.role === "user")) {
           return Response.json({ error: "Escribí algo primero." }, { status: 400 });
@@ -63,7 +65,7 @@ export const Route = createFileRoute("/api/chat")({
           upstream = await fetchUpstream(
             motor,
             {
-              system: parsed.data.system.slice(0, 32000),
+              system: parsed.data.system,
               messages: history,
               temperature: parsed.data.temperature ?? 0.8,
             },
@@ -93,6 +95,7 @@ export const Route = createFileRoute("/api/chat")({
           async start(controller) {
             const reader = upstream.body!.getReader();
             let buffer = "";
+            let stop = "unknown";
             try {
               while (true) {
                 const { done, value } = await reader.read();
@@ -107,7 +110,8 @@ export const Route = createFileRoute("/api/chat")({
                   if (!data || data === "[DONE]") continue;
                   try {
                     const event = JSON.parse(data) as Record<string, unknown>;
-                    const { token, model } = tokenFromUpstream(motor.kind, event);
+                    const { token, model, stop: s } = tokenFromUpstream(motor.kind, event);
+                    if (s) stop = mapStop(s);
                     if (model) {
                       controller.enqueue(
                         encoder.encode(`data: ${JSON.stringify({ m: model })}\n\n`),
@@ -123,11 +127,12 @@ export const Route = createFileRoute("/api/chat")({
                   }
                 }
               }
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ stop })}\n\n`));
               controller.enqueue(encoder.encode("data: [DONE]\n\n"));
               controller.close();
             } catch (err) {
               controller.enqueue(
-                encoder.encode(`data: ${JSON.stringify({ error: "Se cortó la respuesta." })}\n\n`),
+                encoder.encode(`data: ${JSON.stringify({ error: "Se cortó la respuesta.", stop: "error" })}\n\n`),
               );
               controller.close();
               void err;
@@ -147,3 +152,10 @@ export const Route = createFileRoute("/api/chat")({
     },
   },
 });
+
+function mapStop(raw: string): string {
+  if (raw === "stop" || raw === "end_turn") return "end_turn";
+  if (raw === "length" || raw === "max_tokens") return "max_tokens";
+  if (raw === "error") return "error";
+  return raw || "unknown";
+}

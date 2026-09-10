@@ -1,4 +1,5 @@
 import { ownerKeyHeaders } from "@/lib/rick/owner-key";
+import type { TransportStop } from "@/lib/rick/admit";
 
 export type WireMessage = { role: "user" | "assistant"; content: string };
 
@@ -8,7 +9,7 @@ export async function streamChat(input: {
   messages: WireMessage[];
   signal?: AbortSignal;
   onToken: (token: string) => void;
-}): Promise<{ text: string; model: string }> {
+}): Promise<{ text: string; model: string; stop: TransportStop }> {
   const res = await fetch("/api/chat", {
     method: "POST",
     headers: { "Content-Type": "application/json", ...ownerKeyHeaders() },
@@ -38,6 +39,7 @@ export async function streamChat(input: {
   let buffer = "";
   let full = "";
   let model = "";
+  let stop: TransportStop = "unknown";
 
   while (true) {
     const { done, value } = await reader.read();
@@ -53,8 +55,12 @@ export async function streamChat(input: {
         .trim();
       if (!line || line === "[DONE]") continue;
       try {
-        const parsed = JSON.parse(line) as { t?: string; m?: string; error?: string };
-        if (parsed.error) throw new Error(parsed.error);
+        const parsed = JSON.parse(line) as { t?: string; m?: string; error?: string; stop?: string };
+        if (parsed.error) {
+          stop = (parsed.stop as TransportStop) || "error";
+          throw new Error(parsed.error);
+        }
+        if (parsed.stop) stop = parsed.stop as TransportStop;
         if (parsed.m) model = parsed.m;
         if (parsed.t) {
           full += parsed.t;
@@ -67,7 +73,9 @@ export async function streamChat(input: {
     }
   }
 
-  return { text: full, model };
+  if (!full.trim() && stop === "unknown") stop = "empty";
+  if (stop === "unknown") stop = "end_turn";
+  return { text: full, model, stop };
 }
 
 export async function speakText(input: { text: string; voiceId: string; signal?: AbortSignal }) {

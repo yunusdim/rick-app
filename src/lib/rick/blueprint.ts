@@ -61,7 +61,9 @@ Antes de hablar: candado de gasto, candado de motor, deriva.
 Deriva — solape del hilo. Poca muestra: se observa, no se corta. Continuidad bajo 0,1: CRITICAL. Corta hasta que el operador reconozca (/drift). Recargar no es reconocer. La respuesta no entra.
 Canon — el documento entra entero a almacén y paquete, o no entra. Un recorte no se presenta como el documento. Sanitizar marcadores no es pérdida de contenido.
 Contradicción — solo con negación o sustitución, y solape léxico. No hay resumen-LLM contra canon.
-Enforcer — vacía, corta, eco, repetida: no entra.
+Enforcer — vacía, corta, eco, repetida: no entra. Un corte de stream no se admite: es evidencia, no conversación.
+Canon — el documento entra entero a almacén y paquete, o no entra. La huella es del cuerpo original; lo léxico no identifica.
+Olvidar — pide confirmación, respalda hilo y resumen de este eje. /restaurar devuelve eso. Recargar no es /drift. Una pestaña escribe.
 Motor — el primer modelo es referencia. Si cambia, se corta hasta /motor.
 Olvidar — pide confirmación, respalda el hilo de este eje, no toca canon ni identidad ni los otros ejes. /restaurar devuelve el último respaldo.
 El sensor vive: cada evaluación queda anotada, dispare o no.

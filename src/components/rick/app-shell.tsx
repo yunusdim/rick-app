@@ -34,7 +34,6 @@ import { validateContract } from "@/lib/rick/contract";
 import { contradictionScore, replyCanonScore, CANON_BLOCK, CANON_WARN } from "@/lib/rick/contradiction";
 import { formatDiag } from "@/lib/rick/diag";
 import { computeDrift } from "@/lib/rick/drift";
-import { enforceMemoryUsage } from "@/lib/rick/enforcer";
 import { isHomeAxis } from "@/lib/rick/factual";
 import { runChecks, runReplyChecks } from "@/lib/rick/govern";
 import {
@@ -54,7 +53,10 @@ import { cn, uid } from "@/lib/utils";
 import { watchKeyboard } from "@/lib/rick/keyboard";
 import { readMotor, motorHasVoice } from "@/lib/rick/motor";
 import { isStaleBuild, remoteBuild } from "@/lib/rick/update";
+import { admitReply } from "@/lib/rick/admit";
 import { turnMayCall } from "@/lib/rick/gates";
+import { transportOk } from "@/lib/rick/transport";
+import { claimWriter, isWriter } from "@/lib/rick/writer";
 import { readOwnerKey } from "@/lib/rick/owner-key";
 
 const NAV: { id: ViewId; label: string; icon: typeof FileText }[] = [
@@ -124,6 +126,7 @@ export function RickApp() {
   const [keyOpen, setKeyOpen] = useState(false);
   const [kb, setKb] = useState(0);
   const [stale, setStale] = useState(false);
+  const [writer, setWriter] = useState(true);
   const pendingRef = useRef<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const liveRef = useRef("");
@@ -133,6 +136,7 @@ export function RickApp() {
 
   useEffect(() => {
     rehydrateRick();
+    claimWriter(setWriter);
   }, []);
 
   useEffect(() => {
@@ -365,6 +369,9 @@ export function RickApp() {
         contractOk: contract.ok,
         canonIntegral: assembled.canonIntegral !== false,
         motorBlocked: useRick.getState().motorBlocked,
+        orderOk: orden.ok,
+        transportOk: transportOk({ system: assembled.system, messages: [{ content: text }] }).ok,
+        writer: isWriter(),
       });
       if (!gate.call) {
         addMessage({
@@ -384,6 +391,7 @@ export function RickApp() {
         role: "assistant",
         content: "",
         voice: state.voice,
+        admitted: false,
       });
       setStreamingId(assistantId);
       setLiveText("");
@@ -414,20 +422,22 @@ export function RickApp() {
         });
         assembledText = streamed.text;
         modelName = streamed.model;
-        if (!assembledText.trim()) {
-          assembledText = "Me quedé en blanco. Tirame de nuevo.";
-        }
-
-        const lastAsst = [...domainMsgs].reverse().find((m) => m.role === "assistant")?.content ?? "";
-        const enf = enforceMemoryUsage({
+        const lastAsst = [...domainMsgs].reverse().find((m) => m.role === "assistant" && m.admitted !== false)?.content ?? "";
+        const admission = admitReply({
+          text: assembledText,
+          stop: streamed.stop,
           userTurn: text,
-          reply: assembledText,
           lastAssistant: lastAsst,
         });
-        const canonHit = replyCanonScore(assembledText, canonText);
-        let blocked = enf.decision === "BLOCK";
-        let blockReason = enf.reason;
-        if (!blocked && canonText.trim() && canonHit > CANON_BLOCK && contra.score > 0) {
+        const canonHit = replyCanonScore(admission.status === "admitted" ? admission.text : "", canonText);
+        let blocked = admission.status === "rejected";
+        let blockReason = admission.status === "rejected" ? admission.reason : "";
+        if (
+          admission.status === "admitted" &&
+          canonText.trim() &&
+          canonHit > CANON_BLOCK &&
+          contra.score > 0
+        ) {
           blocked = true;
           blockReason = `contradicción con canon ${canonHit.toFixed(2)}`;
         }
@@ -437,9 +447,9 @@ export function RickApp() {
             id: uid(),
             at: Date.now(),
             kind: "enforcer",
-            alert: enf.decision !== "PASS",
+            alert: blocked,
             abstain: false,
-            detail: `${enf.decision} · ${enf.reason}`,
+            detail: `${admission.status} · ${admission.reason}`,
           },
           ...runReplyChecks({ reply: assembledText, canonText }),
         ]);
@@ -451,11 +461,11 @@ export function RickApp() {
         }
 
         if (blocked) {
-          const msg = `[BLOQUEADO] ${blockReason}. La respuesta no entra al hilo.`;
-          patchMessage(assistantId, msg);
+          const msg = `[NO ADMITIDO] ${blockReason}. La respuesta no entra al hilo.`;
+          patchMessage(assistantId, msg, false);
           toast.error(msg);
         } else {
-          patchMessage(assistantId, assembledText);
+          patchMessage(assistantId, assembledText, true);
           if (assembled.selectedIds?.length) bumpUsage(assembled.selectedIds);
           if (state.focus && state.focus.domainId === active.id) {
             const hit = overlap(assembledText, `${state.focus.label} ${state.focus.thesis}`);
@@ -483,9 +493,11 @@ export function RickApp() {
                 content: assembledText,
                 voice: state.voice,
                 createdAt: Date.now(),
+                admitted: true,
               },
             ],
             previous: state.summaries[active.id] ?? "",
+            cursor: state.summaryCursors[active.id] ?? "",
             canonText,
           });
           if (sum.rejected) {
@@ -499,8 +511,8 @@ export function RickApp() {
                 detail: sum.reason,
               },
             ]);
-          } else if (sum.summary !== (state.summaries[active.id] ?? "")) {
-            setSummary(active.id, sum.summary);
+          } else if (sum.summary !== (state.summaries[active.id] ?? "") || sum.cursor !== (state.summaryCursors[active.id] ?? "")) {
+            setSummary(active.id, sum.summary, sum.cursor);
           }
         }
 
@@ -509,7 +521,7 @@ export function RickApp() {
           abstraccion: "s/d",
           deriva: extraChecks.find((c) => c.kind === "deriva")?.detail ?? "LOW",
           vce: `${vce.mode} (${vce.diagnosis})`,
-          enforcer: blocked ? `BLOCK (${blockReason})` : `${enf.decision} (${enf.reason})`,
+          enforcer: blocked ? `BLOCK (${blockReason})` : admission.reason,
           contradiccion: String(contra.score),
           cobertura: canonHit.toFixed(2),
           densidad: String(vce.tema.toFixed(2)),
@@ -523,15 +535,9 @@ export function RickApp() {
         setDiag(diag, formatDiag(diag));
       } catch (err) {
         const aborted = (err as Error).name === "AbortError";
-        if (aborted) {
-          const cut = assembledText.trim() || "Se cortó. Probá de nuevo.";
-          patchMessage(assistantId, cut);
-          if (!assembledText.trim()) toast.error("La entidad tardó demasiado.");
-        } else {
-          const message = err instanceof Error ? err.message : "Algo falló.";
-          patchMessage(assistantId, assembledText.trim() || message);
-          toast.error(message);
-        }
+        const reason = aborted ? "terminación abort — no admitida" : err instanceof Error ? err.message : "Algo falló.";
+        patchMessage(assistantId, `[NO ADMITIDO] ${reason}. La respuesta no entra al hilo.`, false);
+        toast.error(reason);
       } finally {
         window.clearTimeout(timeout);
         if (rafRef.current) {
@@ -545,8 +551,16 @@ export function RickApp() {
         abortRef.current = null;
       }
 
-      const finalText = useRick.getState().messages.find((m) => m.id === assistantId)?.content ?? "";
-      if (useRick.getState().autoSpeak && hasVoice && finalText.trim() && !finalText.startsWith("[BLOQUEADO]")) {
+      const finalMsg = useRick.getState().messages.find((m) => m.id === assistantId);
+      const finalText = finalMsg?.content ?? "";
+      if (
+        useRick.getState().autoSpeak &&
+        hasVoice &&
+        finalMsg?.admitted &&
+        finalText.trim() &&
+        !finalText.startsWith("[BLOQUEADO]") &&
+        !finalText.startsWith("[NO ADMITIDO]")
+      ) {
         try {
           await speaker.play(assistantId, finalText, PERSONAS[state.voice].voiceId);
         } catch {
@@ -557,7 +571,7 @@ export function RickApp() {
     [addChecks, addMessage, bumpTurns, bumpUsage, busy, hasVoice, patchMessage, serverGrok, setDiag, setDriftBlocked, setLastAssembled, setMotor, setSummary, speaker],
   );
 
-  const mic = useMic((text) => void sendText(text));
+  const mic = useMic((text) => setDraft((d) => (d ? `${d} ${text}` : text)));
 
   async function handleCommand(raw: string): Promise<boolean> {
     const text = raw.trim();
@@ -788,6 +802,7 @@ export function RickApp() {
                 {locked ? " · candado" : ""}
                 {motorBlocked ? " · motor" : ""}
                 {driftBlocked ? " · deriva" : ""}
+                {writer ? "" : " · lectora"}
                 {persistOk === false ? " · persistencia" : ""}
                 {focus ? ` · foco ${focus.label}` : ""}
                 {recorder.recording ? " · grabando" : ""}

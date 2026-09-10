@@ -57,6 +57,7 @@ export type RickMessage = {
   content: string;
   voice: PersonaId;
   createdAt: number;
+  admitted?: boolean;
 };
 
 export type Domain = {
@@ -75,6 +76,7 @@ export type Doc = {
   kind: "canon" | "library";
   createdAt: number;
   hash?: string;
+  contentHash?: string;
   normalized?: string;
   usageCount?: number;
   lastUsedAt?: number;
@@ -138,6 +140,7 @@ export type Assembled = {
   contractOk?: boolean;
   driftRisk?: DriftRisk;
   canonIntegral?: boolean;
+  partial?: boolean;
 };
 
 export type AssemblyRecord = Assembled;
@@ -148,6 +151,8 @@ export type ForgetBackup = {
   domainName: string;
   at: number;
   messages: RickMessage[];
+  summary: string;
+  cursor: string;
 };
 
 export type HandPin = {

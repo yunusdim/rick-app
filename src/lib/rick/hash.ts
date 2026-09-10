@@ -1,5 +1,12 @@
+import { sha256Hex } from "@/lib/rick/sha256";
 import { normalizeContent } from "@/lib/rick/normalize";
 
+/** Huella del cuerpo original. Dedup e integridad. */
+export function contentHash(body: string): string {
+  return sha256Hex(body);
+}
+
+/** Representación léxica. Selección y comparación, no identidad. */
 export function nodeHash(axis: string, path: string, body: string) {
   const s = `${axis}|${path}|${normalizeContent(body)}`;
   let a = 0x811c9dc5;

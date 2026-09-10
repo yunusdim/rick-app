@@ -53,6 +53,7 @@ export async function fetchUpstream(
 export function tokenFromUpstream(kind: ResolvedMotor["kind"], event: Record<string, unknown>): {
   token?: string;
   model?: string;
+  stop?: string;
 } {
   if (kind === "anthropic") {
     const type = event.type;
@@ -64,12 +65,19 @@ export function tokenFromUpstream(kind: ResolvedMotor["kind"], event: Record<str
       const delta = event.delta as { type?: string; text?: string } | undefined;
       if (delta?.type === "text_delta" && delta.text) return { token: delta.text };
     }
+    if (type === "message_delta") {
+      const delta = event.delta as { stop_reason?: string } | undefined;
+      if (delta?.stop_reason) return { stop: delta.stop_reason };
+    }
+    if (type === "error") return { stop: "error" };
     return {};
   }
-  const choices = event.choices as { delta?: { content?: string } }[] | undefined;
+  const choices = event.choices as { delta?: { content?: string }; finish_reason?: string | null }[] | undefined;
+  const finish = choices?.[0]?.finish_reason;
   return {
     model: typeof event.model === "string" ? event.model : undefined,
     token: choices?.[0]?.delta?.content,
+    stop: finish ?? undefined,
   };
 }
 
@@ -92,7 +100,7 @@ export async function fetchTts(
   input: { text: string; voiceId: string },
   signal: AbortSignal,
 ): Promise<Response> {
-  if (motor.tts === "none") {
+  if (motor.tts === "none" || motor.tts === "unknown") {
     return new Response(JSON.stringify({ error: "Este motor no tiene voz. El chat sí." }), {
       status: 400,
       headers: { "Content-Type": "application/json" },

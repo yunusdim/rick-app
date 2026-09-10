@@ -162,7 +162,9 @@ export function assemble(input: {
     sections.push(section("META", "contrato", input.meta));
   }
 
-  const domainMsgs = input.messages.filter((m) => m.domainId === input.domain.id);
+  const domainMsgs = input.messages.filter(
+    (m) => m.domainId === input.domain.id && (m.role === "user" || m.admitted !== false),
+  );
   const window = domainMsgs.slice(-SESSION_INJECT_WINDOW);
   const sessionLines = window.map((m) => {
     const who = m.role === "user" ? "Operador" : `Sistema (voz ${PERSONAS[m.voice].name})`;
@@ -302,7 +304,7 @@ export function orderOk(sections: AssembledSection[]): { ok: boolean; detail: st
   const present = sections.map((s) => s.name).filter((n) => canon.includes(n));
   const idxs = present.map((n) => canon.indexOf(n));
   for (let i = 1; i < idxs.length; i += 1) {
-    if (idxs[i] < idxs[i - 1]) {
+    if (idxs[i] <= idxs[i - 1]) {
       return { ok: false, detail: `${present[i - 1]} > ${present[i]}` };
     }
   }

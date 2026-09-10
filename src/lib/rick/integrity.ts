@@ -1,9 +1,12 @@
+import { utf8Bytes } from "@/lib/rick/bytes";
+
 export const DOC_MAX = 20000;
 export const CANON_PACK_MAX = 24000;
 
 export function acceptReceived(body: string): { ok: true; stored: string } | { ok: false; reason: string } {
-  if (body.length > DOC_MAX) {
-    return { ok: false, reason: `no cabe entero (${body.length} > ${DOC_MAX}). No se recortó.` };
+  const n = utf8Bytes(body);
+  if (n > DOC_MAX) {
+    return { ok: false, reason: `no cabe entero (${n} > ${DOC_MAX} bytes UTF-8). No se recortó.` };
   }
   return { ok: true, stored: body };
 }
@@ -34,18 +37,19 @@ export function packCanon(
     const line = b.habitat
       ? `[CANONICAL · hábitat · ${b.title}]\n${b.body}`
       : `[CANONICAL · ${b.domainName} · ${b.title}]\n${b.body}`;
+    const weight = utf8Bytes(line);
     if (stopped) {
-      omitted.push({ title: b.title, bytes: b.body.length });
+      omitted.push({ title: b.title, bytes: utf8Bytes(b.body) });
       continue;
     }
     const sep = lines.length ? 2 : 0;
-    if (used + sep + line.length > budget) {
-      omitted.push({ title: b.title, bytes: b.body.length });
+    if (used + sep + weight > budget) {
+      omitted.push({ title: b.title, bytes: utf8Bytes(b.body) });
       stopped = true;
       continue;
     }
     lines.push(line);
-    used += sep + line.length;
+    used += sep + weight;
     if (b.habitat) habitatOk = true;
   }
 
