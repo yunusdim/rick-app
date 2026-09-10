@@ -8,7 +8,7 @@ Diego Gabriel Impieri
 Independent researcher · Argentina  
 ORCID 0009-0003-9082-650X
 
-Technical report · This document confronts commit `f8e6465` of [github.com/yunusdim/rick-app](https://github.com/yunusdim/rick-app) and the chrome revision that follows it on 10 September 2026. The freeze of 8 September 2026 remains at `b1df8bb` / tag `freeze-v9-2026-09-08`. That snapshot is not rewritten.
+Technical report · This document confronts commit `edf34e5` of [github.com/yunusdim/rick-app](https://github.com/yunusdim/rick-app), 10 September 2026. The freeze of 8 September 2026 remains at `b1df8bb` / tag `freeze-v9-2026-09-08`. That snapshot is not rewritten.
 
 Browser · TanStack Start + Vite · zustand persist (`rick-app-v3`) · Engine chosen by the person who opens it.
 
@@ -58,7 +58,7 @@ The counter-hypothesis is that this is over-restrictive: that a client which ref
 
 An adversarial prior-art search was run over academic indices, repositories, project documentation and community sources. Its instruction was to refute each claim, not confirm it. It found named prior art for the generic component of all seven mechanisms below, as of the freeze at `b1df8bb`. Each claim is stated after that search, at the scope the evidence allows, with what was found against it.
 
-Amendments in `f8e6465` and the chrome revision that follows it are listed after the original six. They describe the live machine. They are not offered as new priority claims.
+Amendments in `edf34e5` are listed after the original six. They describe the live machine. They are not offered as new priority claims.
 
 **Primary — the fail-closed section contract.** Thirteen named sections in a declared canonical order; `validateContract` verifies before the model call that ten required sections are present with UTF-8 bytes > 0, each exactly once, that no undeclared name appears, and that `orderOk` holds with strictly increasing indices (equal consecutive indices fail). On failure the call is not made and the turn is cut.
 
@@ -387,4 +387,4 @@ Sources 1, 2, 3, 6, 7, 8, 10, 11, 12, 18, 19, 23, 24, 25, 27, 28–31 and 32 are
 
 ---
 
-*Rick App · an instance of RICK Runtime v9 · Browser, TanStack Start, zustand persist · Code at github.com/yunusdim/rick-app, freeze `b1df8bb`, live parent `f8e6465`, chrome marker **actualizada** · The live code in the repository is the authority; this document confronts it, never the reverse.*
+*Rick App · an instance of RICK Runtime v9 · Browser, TanStack Start, zustand persist · Code at github.com/yunusdim/rick-app, freeze `b1df8bb`, live `edf34e5`, chrome marker **actualizada** · The live code in the repository is the authority; this document confronts it, never the reverse.*
