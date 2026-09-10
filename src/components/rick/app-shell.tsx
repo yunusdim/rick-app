@@ -52,6 +52,7 @@ import { computeVce } from "@/lib/rick/vce";
 import { cn, uid } from "@/lib/utils";
 import { watchKeyboard } from "@/lib/rick/keyboard";
 import { readMotor, motorHasVoice } from "@/lib/rick/motor";
+import { RICK_BUILD } from "@/lib/rick/build";
 import { isStaleBuild, remoteBuild } from "@/lib/rick/update";
 import { admitReply } from "@/lib/rick/admit";
 import { turnMayCall } from "@/lib/rick/gates";
@@ -60,7 +61,7 @@ import { claimWriter, isWriter } from "@/lib/rick/writer";
 import { readOwnerKey } from "@/lib/rick/owner-key";
 
 const NAV: { id: ViewId; label: string; icon: typeof FileText }[] = [
-  { id: "mesa", label: "Mesa", icon: Circle },
+  { id: "mesa", label: "Hilo", icon: Circle },
   { id: "agenda", label: "Agenda", icon: CalendarDays },
   { id: "grabaciones", label: "Cintas", icon: Mic },
   { id: "canon", label: "Canon", icon: FileText },
@@ -774,7 +775,7 @@ export function RickApp() {
             >
               {domains.map((d) => (
                 <option key={d.id} value={d.id}>
-                  {d.id === "mesa" ? `${d.name} · casa` : d.name}
+                  {d.id === "mesa" ? "eje propio" : d.name}
                 </option>
               ))}
             </select>
@@ -797,8 +798,8 @@ export function RickApp() {
             <div className="min-w-0 flex-1">
               <p className="font-display text-lg leading-none tracking-tight">Rick App</p>
               <p className="mt-1 truncate text-xs text-muted">
-                {domain.name}
-                {home ? " · casa" : " · fáctico"} · {PERSONAS[voice].name}
+                actualizada · {PERSONAS[voice].name} · {RICK_BUILD}
+                {home ? "" : " · fáctico"}
                 {locked ? " · candado" : ""}
                 {motorBlocked ? " · motor" : ""}
                 {driftBlocked ? " · deriva" : ""}
@@ -1073,15 +1074,17 @@ function MesaThread({
   if (messages.length === 0) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center px-6 text-center">
-        <p className="text-xs font-medium tracking-widest text-muted uppercase">Rick App · freeze 2026-09-08</p>
+        <p className="text-xs font-medium tracking-widest text-muted uppercase">
+          Rick App · actualizada · {RICK_BUILD}
+        </p>
         <h1 className="mt-3 font-display text-4xl tracking-tight">
           {awaitingIdentity ? "Ahora, quién sos" : "El entorno arma el turno"}
         </h1>
         <p className="mt-4 max-w-md text-sm leading-relaxed text-muted">
           {awaitingIdentity
-            ? "La clave ya está. Falta la personalidad: identidad, no un tema de la mesa."
+            ? "La clave ya está. Falta la personalidad: identidad, no un tema."
             : home
-              ? "Mesa es eje casa: podés estar. Anti-invención de hechos se conserva."
+              ? "Eje propio: podés estar. Anti-invención de hechos se conserva."
               : "Eje de trabajo: modo fáctico salvo verbo generativo. Canon entra entero."}{" "}
           {!awaitingIdentity
             ? `Trece secciones. CONTEXTO 2 vuelve. /olvidar pide confirmación.${locked ? " Candado puesto: la entidad no gasta hasta desbloquear." : ""}`

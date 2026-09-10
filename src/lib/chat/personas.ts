@@ -51,7 +51,7 @@ export const PERSONAS: Record<PersonaId, Persona> = {
     id: "night",
     name: "3AM",
     seat: "La madrugada",
-    tagline: "Compañero de mesa",
+    tagline: "Compañero de madrugada",
     hint: "Lento, preciso, sin coach.",
     welcome: "Es tarde. Está bien.",
     voiceId: "luna",
