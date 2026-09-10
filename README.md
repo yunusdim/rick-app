@@ -7,6 +7,8 @@ El entorno arma el turno. El modelo solo genera texto. Cada quien trae su propia
 **Probar:** [rick-app-three.vercel.app](https://rick-app-three.vercel.app)  
 **Informe:** Impieri, D. G. (2026). *Rick App: Fail-Closed Context Governance in the Browser*. Zenodo. [doi:10.5281/zenodo.22654842](https://doi.org/10.5281/zenodo.22654842) — concept DOI: resuelve siempre a la última versión.
 
+La versión de referencia es la 3: [`10.5281/zenodo.22694794`](https://doi.org/10.5281/zenodo.22694794), archivo `Impieri_2026_Rick_App_EN_edf34e5_v3.pdf`, md5 `3f5ea1c77a93469ec9df5cf0b181a7e9`. La versión 2 del depósito quedó publicada con un archivo cuyo md5 no es ese, y Zenodo no permite reemplazar archivos ya publicados. Si el md5 no coincide, no es el informe.
+
 Al abrir pide el **motor** y la **API key**. xAI, OpenAI, Anthropic, OpenRouter, Groq, Mistral, Gemini, o un endpoint OpenAI-compatible (`https://host/v1`). Queda en *tu* navegador. No gasta la cuota de nadie más.
 
 Si el motor es como Grok, hay chat y voz. Si no, solo lo que ese motor trae. No se finge una voz.
