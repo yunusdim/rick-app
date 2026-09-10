@@ -15,6 +15,7 @@ import type {
 } from "@/lib/rick/types";
 import { ENTITY_MAX_BYTES, HAND_WINDOW, SESSION_INJECT_WINDOW, STATUS_LABEL } from "@/lib/rick/types";
 import { FRAME_CANON, FRAME_ID } from "@/lib/rick/blueprint";
+import { packCanon } from "@/lib/rick/integrity";
 import { uid } from "@/lib/utils";
 
 const MARK = {
@@ -115,14 +116,27 @@ export function assemble(input: {
       !d.deprecated &&
       d.id !== FRAME_ID,
   );
-  const listed = [
-    `[CANONICAL · hábitat · ${frame.title}]\n${clip(frame.body, ENTITY_MAX_BYTES)}`,
-    ...axisCanon.map(
-      (d) => `[CANONICAL · ${input.domain.name} · ${d.title}]\n${clip(d.body, 2500)}`,
-    ),
-  ]
-    .join("\n\n")
-    .slice(0, 24000);
+  const packed = packCanon([
+    {
+      title: frame.title,
+      body: frame.body,
+      habitat: true,
+      domainName: input.domain.name,
+    },
+    ...axisCanon.map((d) => ({
+      title: d.title,
+      body: d.body,
+      habitat: false,
+      domainName: input.domain.name,
+    })),
+  ]);
+  const impossibility = packed.omitted
+    .map(
+      (o) =>
+        `IMPOSIBILIDAD · «${o.title}» pesa ${o.bytes} y no entra entero al paquete. No se recortó. No gobierna este turno.`,
+    )
+    .join("\n");
+  const listed = [packed.lines.join("\n\n"), impossibility].filter(Boolean).join("\n\n");
 
   if (!axisCanon.length && !home) {
     sections.push(
@@ -139,7 +153,7 @@ export function assemble(input: {
       "CANONICAL",
       "canon",
       axisCanon.length
-        ? `Hábitat siempre presente. Temas de ${input.domain.name}: ${axisCanon.length}. Contá solo lo etiquetado CANONICAL.\n\n${listed}`
+        ? `Hábitat siempre presente. Temas de ${input.domain.name}: ${axisCanon.length}. Contá solo lo etiquetado CANONICAL. Un recorte no es el documento.\n\n${listed}`
         : `Hábitat siempre presente. Ningún tema de ${input.domain.name}.\n\n${listed}`,
     ),
   );
@@ -266,6 +280,7 @@ export function assemble(input: {
     factual,
     home,
     selectedIds,
+    canonIntegral: packed.integral,
   };
 }
 

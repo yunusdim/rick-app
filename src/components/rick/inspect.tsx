@@ -77,6 +77,10 @@ export function InspectPanel() {
   const domain = useActiveDomain();
   const diagPrev = useRick((s) => s.diagPrev);
   const traces = useRick((s) => s.traces);
+  const driftBlocked = useRick((s) => s.driftBlocked);
+  const driftReason = useRick((s) => s.driftReason);
+  const persistOk = useRick((s) => s.persistOk);
+  const persistError = useRick((s) => s.persistError);
   const stats = rates(checks);
   const [tab, setTab] = useState<
     "paquete" | "historial" | "chequeos" | "respaldos" | "gobierno" | "banco" | "traza"
@@ -98,6 +102,10 @@ export function InspectPanel() {
         <h2 className="font-display text-3xl tracking-tight">Inspeccionar</h2>
         <p className="mt-1 text-sm text-muted">
           El paquete entero, con estatus epistémico. El registro anota aciertos, no solo fallos.
+        </p>
+        <p className="mt-2 text-xs text-muted">
+          {persistOk ? "Persistencia confirmada." : persistError || "Persistencia no confirmada."}
+          {driftBlocked ? ` · deriva bloqueada${driftReason ? ` (${driftReason})` : ""}` : ""}
         </p>
       </header>
 

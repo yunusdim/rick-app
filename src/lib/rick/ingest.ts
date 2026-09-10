@@ -19,7 +19,9 @@ export async function ingestFiles(
         body: extracted.body,
         kind: opts.kind,
       });
-      if (result.duplicate) {
+      if (!result.ok) {
+        fail.push(`${file.name}: ${result.reason}`);
+      } else if (result.duplicate) {
         fail.push(`${file.name}: ya estaba en este eje (mismo hash)`);
       } else {
         ok += 1;

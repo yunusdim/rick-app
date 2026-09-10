@@ -53,6 +53,7 @@ import { computeVce } from "@/lib/rick/vce";
 import { cn, uid } from "@/lib/utils";
 import { watchKeyboard } from "@/lib/rick/keyboard";
 import { readMotor, motorHasVoice } from "@/lib/rick/motor";
+import { turnMayCall } from "@/lib/rick/gates";
 import { readOwnerKey } from "@/lib/rick/owner-key";
 
 const NAV: { id: ViewId; label: string; icon: typeof FileText }[] = [
@@ -100,6 +101,9 @@ export function RickApp() {
   const addDoc = useRick((s) => s.addDoc);
   const addTrace = useRick((s) => s.addTrace);
   const motorBlocked = useRick((s) => s.motorBlocked);
+  const driftBlocked = useRick((s) => s.driftBlocked);
+  const persistOk = useRick((s) => s.persistOk);
+  const persistError = useRick((s) => s.persistError);
   const motorRef = useRick((s) => s.motorRef);
   const motorLast = useRick((s) => s.motorLast);
   const focus = useRick((s) => s.focus);
@@ -150,6 +154,10 @@ export function RickApp() {
   }, [lockEnabled]);
 
   useEffect(() => watchKeyboard(setKb), []);
+
+  useEffect(() => {
+    if (persistOk === false) toast.error(persistError || "Persistencia no confirmada.");
+  }, [persistOk, persistError]);
 
   const thread = messages.filter((m) => m.domainId === domain.id);
   const locked = lockEnabled && !unlocked;
@@ -214,7 +222,7 @@ export function RickApp() {
           : "";
 
       if (drift.risk === "CRITICAL") {
-        setDriftBlocked(true);
+        setDriftBlocked(true, drift.reason);
         addChecks([
           {
             id: uid(),
@@ -312,6 +320,14 @@ export function RickApp() {
           abstain: drift.abstain,
           detail: `${drift.risk} · ${drift.type} · ${drift.reason}`,
         },
+        {
+          id: uid(),
+          at: Date.now(),
+          kind: "cobertura" as const,
+          alert: assembled.canonIntegral === false,
+          abstain: false,
+          detail: assembled.canonIntegral === false ? "canon no íntegro — no se recortó" : "canon íntegro",
+        },
       ];
       addChecks(extraChecks);
 
@@ -319,16 +335,21 @@ export function RickApp() {
       bumpTurns();
       setDraft("");
 
-      if (drift.risk === "CRITICAL" || !contract.ok) {
-        const reason =
-          drift.risk === "CRITICAL" ? "deriva CRITICAL" : `contrato FAIL: ${contract.detail}`;
+      const gate = turnMayCall({
+        driftBlocked: useRick.getState().driftBlocked,
+        driftRisk: drift.risk,
+        contractOk: contract.ok,
+        canonIntegral: assembled.canonIntegral !== false,
+        motorBlocked: useRick.getState().motorBlocked,
+      });
+      if (!gate.call) {
         addMessage({
           domainId: active.id,
           role: "assistant",
-          content: `[BLOQUEADO] ${reason}. La respuesta no entra al hilo.`,
+          content: `[BLOQUEADO] ${gate.reason}. La respuesta no entra al hilo.`,
           voice: state.voice,
         });
-        toast.error(reason);
+        toast.error(gate.reason);
         return;
       }
 
@@ -574,7 +595,8 @@ export function RickApp() {
         body,
         kind: "canon",
       });
-      toast(result.duplicate ? "Ya estaba en el canon de este eje." : "Canónico en este eje.");
+      if (!result.ok) toast.error(result.reason);
+      else toast(result.duplicate ? "Ya estaba en el canon de este eje." : "Canónico en este eje.");
       return true;
     }
     if (key === "vce") {
@@ -733,6 +755,8 @@ export function RickApp() {
                 {home ? " · casa" : " · fáctico"} · {PERSONAS[voice].name}
                 {locked ? " · candado" : ""}
                 {motorBlocked ? " · motor" : ""}
+                {driftBlocked ? " · deriva" : ""}
+                {persistOk === false ? " · persistencia" : ""}
                 {focus ? ` · foco ${focus.label}` : ""}
                 {recorder.recording ? " · grabando" : ""}
               </p>

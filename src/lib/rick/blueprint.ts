@@ -58,7 +58,8 @@ Contrato: si falta un bloque exigido o pesa cero, no hay respuesta. ABSTENCION, 
 
 VI. GOBIERNO
 Antes de hablar: candado de gasto, candado de motor, deriva.
-Deriva — solape del hilo. Poca muestra: se observa, no se corta. Continuidad bajo 0,1: CRITICAL. Corta hasta que el operador reconozca (/drift). La respuesta no entra.
+Deriva — solape del hilo. Poca muestra: se observa, no se corta. Continuidad bajo 0,1: CRITICAL. Corta hasta que el operador reconozca (/drift). Recargar no es reconocer. La respuesta no entra.
+Canon — el documento entra entero a almacén y paquete, o no entra. Un recorte no se presenta como el documento. Sanitizar marcadores no es pérdida de contenido.
 Contradicción — solo con negación o sustitución, y solape léxico. No hay resumen-LLM contra canon.
 Enforcer — vacía, corta, eco, repetida: no entra.
 Motor — el primer modelo es referencia. Si cambia, se corta hasta /motor.

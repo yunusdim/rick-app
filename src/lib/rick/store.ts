@@ -24,6 +24,7 @@ import type {
 } from "@/lib/rick/types";
 import { EMPTY_DIAG } from "@/lib/rick/diag";
 import { FRAME_CANON, FRAME_ID } from "@/lib/rick/blueprint";
+import { acceptReceived } from "@/lib/rick/integrity";
 
 const MESA: Domain = {
   id: "mesa",
@@ -45,10 +46,18 @@ function flushPersist() {
   if (persistValue == null || typeof localStorage === "undefined") return;
   try {
     localStorage.setItem(persistName, persistValue);
+    reportPersist(true);
   } catch {
-    /* quota */
+    reportPersist(false, "localStorage no confirmó la escritura");
   }
 }
+
+function reportPersist(ok: boolean, error = "") {
+  const api = persistReport;
+  api(ok, error);
+}
+
+let persistReport: (ok: boolean, error: string) => void = () => undefined;
 
 const debouncedStorage: StateStorage = {
   getItem: (name) => {
@@ -102,6 +111,9 @@ type RickState = {
   motorLast: string;
   motorBlocked: boolean;
   driftBlocked: boolean;
+  driftReason: string;
+  persistOk: boolean;
+  persistError: string;
   traces: TraceEntry[];
   recorridoSeq: RecorridoStep[];
   setHydrated: () => void;
@@ -113,10 +125,9 @@ type RickState = {
   switchDomain: (id: string) => void;
   addDomain: (name: string) => { ok: true } | { ok: false; error: string };
   bumpTurns: () => void;
-  addDoc: (doc: Omit<Doc, "id" | "createdAt" | "hash" | "normalized" | "usageCount" | "lastUsedAt" | "deprecated">) => {
-    id: string;
-    duplicate: boolean;
-  };
+  addDoc: (doc: Omit<Doc, "id" | "createdAt" | "hash" | "normalized" | "usageCount" | "lastUsedAt" | "deprecated">) =>
+    | { ok: true; id: string; duplicate: boolean }
+    | { ok: false; reason: string };
   removeDoc: (id: string) => void;
   promoteDoc: (id: string) => boolean;
   demoteDoc: (id: string) => boolean;
@@ -137,7 +148,7 @@ type RickState = {
   primeMotor: (name: string) => void;
   ackMotor: () => void;
   ackDrift: () => void;
-  setDriftBlocked: (v: boolean) => void;
+  setDriftBlocked: (v: boolean, reason?: string) => void;
   forgetActive: () => ForgetBackup | null;
   restoreBackup: (id: string) => boolean;
   setLock: (enabled: boolean, salt?: string, hash?: string) => void;
@@ -173,6 +184,9 @@ export const useRick = create<RickState>()(
       motorLast: "",
       motorBlocked: false,
       driftBlocked: false,
+      driftReason: "",
+      persistOk: true,
+      persistError: "",
       traces: [],
       recorridoSeq: [],
       setHydrated: () => set({ hydrated: true }),
@@ -219,21 +233,27 @@ export const useRick = create<RickState>()(
         });
       },
       addDoc: (doc) => {
-        const normalized = normalizeContent(`${doc.title} ${doc.body}`);
-        const hash = nodeHash(doc.domainId, doc.title, doc.body);
+        const accepted = acceptReceived(doc.body);
+        if (!accepted.ok) {
+          get().addTrace("INGEST RECHAZADO", `${doc.title} ${accepted.reason}`);
+          return { ok: false, reason: accepted.reason };
+        }
+        const stored = accepted.stored;
+        const normalized = normalizeContent(`${doc.title} ${stored}`);
+        const hash = nodeHash(doc.domainId, doc.title, stored);
         const exists = get().docs.find(
           (d) => d.hash === hash && d.domainId === doc.domainId && !d.deprecated,
         );
         if (exists) {
           get().addTrace("INGEST DUPLICADO", `${exists.id} tipo=${exists.kind} axis=${doc.domainId}`);
-          return { id: exists.id, duplicate: true };
+          return { ok: true, id: exists.id, duplicate: true };
         }
         const id = hash;
         const row: Doc = {
           ...doc,
           id,
           createdAt: Date.now(),
-          body: doc.body.slice(0, 20000),
+          body: stored,
           hash,
           normalized,
           usageCount: 0,
@@ -245,7 +265,7 @@ export const useRick = create<RickState>()(
           doc.kind === "canon" ? "REMEMBER" : "BIBLIOTECA",
           `${id} axis=${doc.domainId} ${doc.title}`,
         );
-        return { id, duplicate: false };
+        return { ok: true, id, duplicate: false };
       },
       removeDoc: (id) => {
         if (id === FRAME_ID) return;
@@ -359,8 +379,12 @@ export const useRick = create<RickState>()(
         set({ motorRef: model, motorLast: model, motorBlocked: false });
       },
       ackMotor: () => set({ motorRef: get().motorLast || get().motorRef, motorBlocked: false }),
-      ackDrift: () => set({ driftBlocked: false }),
-      setDriftBlocked: (driftBlocked) => set({ driftBlocked }),
+      ackDrift: () => set({ driftBlocked: false, driftReason: "" }),
+      setDriftBlocked: (driftBlocked, reason) =>
+        set({
+          driftBlocked,
+          driftReason: driftBlocked ? reason ?? get().driftReason : "",
+        }),
       forgetActive: () => {
         const { activeDomainId, domains, messages, backups, summaries } = get();
         const domain = domains.find((d) => d.id === activeDomainId);
@@ -452,6 +476,7 @@ export const useRick = create<RickState>()(
         motorLast: s.motorLast,
         motorBlocked: s.motorBlocked,
         driftBlocked: s.driftBlocked,
+        driftReason: s.driftReason,
         traces: s.traces.slice(0, 80),
         recorridoSeq: s.recorridoSeq,
       }),
@@ -459,6 +484,12 @@ export const useRick = create<RickState>()(
     },
   ),
 );
+
+persistReport = (ok, error) => {
+  const s = useRick.getState();
+  if (s.persistOk === ok && s.persistError === error) return;
+  useRick.setState({ persistOk: ok, persistError: error });
+};
 
 let rehydrateStarted = false;
 

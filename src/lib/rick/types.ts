@@ -137,6 +137,7 @@ export type Assembled = {
   selectedIds?: string[];
   contractOk?: boolean;
   driftRisk?: DriftRisk;
+  canonIntegral?: boolean;
 };
 
 export type AssemblyRecord = Assembled;

@@ -40,7 +40,8 @@ async function extractPdf(file: File) {
   pdfjs.GlobalWorkerOptions.workerSrc = worker.default;
   const data = new Uint8Array(await file.arrayBuffer());
   const doc = await pdfjs.getDocument({ data }).promise;
-  const pages = Math.min(doc.numPages, 40);
+  const pages = doc.numPages;
+  if (pages > 40) throw new Error("El PDF tiene más de 40 páginas. No se recortó.");
   const parts: string[] = [];
   for (let i = 1; i <= pages; i += 1) {
     const page = await doc.getPage(i);
@@ -103,10 +104,12 @@ export async function extractFromFile(file: File): Promise<ExtractedDoc> {
   }
 
   if (!raw.trim()) throw new Error("El archivo está vacío.");
-  const truncated = raw.length > MAX_CHARS;
+  if (raw.length > MAX_CHARS) {
+    throw new Error(`El documento no cabe entero (${raw.length} > ${MAX_CHARS}). No se recortó.`);
+  }
   return {
     title: titleFromName(file.name),
-    body: raw.slice(0, MAX_CHARS),
-    truncated,
+    body: raw,
+    truncated: false,
   };
 }

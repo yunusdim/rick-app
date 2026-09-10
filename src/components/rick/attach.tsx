@@ -24,7 +24,6 @@ async function runIngest(
     );
     onDone?.(result.ok);
   }
-  if (result.truncated) toast("Recorté algún archivo a 20 mil caracteres.");
   for (const row of result.fail) toast.error(row);
 }
 

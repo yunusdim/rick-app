@@ -170,7 +170,8 @@ export function CanonPanel() {
     const result = addDoc({ domainId: domain.id, title: title.trim(), body, kind });
     setTitle("");
     setBody("");
-    if (result.duplicate) toast("Ya estaba en este eje (mismo hash).");
+    if (!result.ok) toast.error(result.reason);
+    else if (result.duplicate) toast("Ya estaba en este eje (mismo hash).");
     else toast.success(kind === "canon" ? "Tema en canon." : "A la biblioteca.");
   }
 

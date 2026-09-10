@@ -10,6 +10,8 @@ import { normalizeContent } from "@/lib/rick/normalize";
 import { pushRecorrido } from "@/lib/rick/recorrido";
 import { maybeSummarize } from "@/lib/rick/summary";
 import { FRAME_CANON } from "@/lib/rick/blueprint";
+import { turnMayCall } from "@/lib/rick/gates";
+import { acceptReceived, packCanon } from "@/lib/rick/integrity";
 import type { Domain, RickMessage } from "@/lib/rick/types";
 
 export type Scenario = { id: string; pass: boolean; detail: string };
@@ -188,7 +190,27 @@ export function runBank(): Scenario[] {
     "CONTEXTO 2 presente si hay diagnóstico",
   );
 
-  check("alerta_001", d2.risk !== "CRITICAL" || d2.risk === "CRITICAL", "CRITICAL es el único corte de deriva");
+  check("alerta_001", !turnMayCall({
+    driftRisk: "CRITICAL",
+    driftBlocked: false,
+    contractOk: true,
+    canonIntegral: true,
+    motorBlocked: false,
+  }).call, "CRITICAL no llama al motor");
+  check("alerta_002", !turnMayCall({
+    driftRisk: "LOW",
+    driftBlocked: true,
+    contractOk: true,
+    canonIntegral: true,
+    motorBlocked: false,
+  }).call, "recargar no reconoce: el bloqueo persiste");
+  check("alerta_003", turnMayCall({
+    driftRisk: "LOW",
+    driftBlocked: false,
+    contractOk: true,
+    canonIntegral: true,
+    motorBlocked: false,
+  }).call, "sin corte se llama");
   check("limits_001", ABSENCE_PHRASE === "no lo tengo en el canon de este eje", "frase de ausencia fija");
 
   const framed = pack({ docs: [FRAME_CANON] });
@@ -204,6 +226,28 @@ export function runBank(): Scenario[] {
     framedWork.system.includes("[CANONICAL · hábitat · Rick App — instancia v9]") &&
       framedWork.system.includes("ABSTENCION"),
     "en otro eje el hábitat sigue y el tema vacío declara abstención",
+  );
+
+  const tail = "CLAUSULA_FINAL_NO_RECORTAR";
+  const longBody = `${"alpha ".repeat(400)}${tail}`;
+  const packedOne = pack({
+    docs: [{ ...FRAME_CANON }, { id: "t", domainId: "mesa", title: "tema", kind: "canon" as const, createdAt: 1, body: longBody }],
+  });
+  check(
+    "integra_001",
+    packedOne.system.includes(tail) && !packedOne.system.includes("IMPOSIBILIDAD"),
+    "la cláusula del final llega al paquete",
+  );
+  const tooBig = acceptReceived(`${"x".repeat(20001)}FIN`);
+  check("integra_002", !tooBig.ok, "carga recortable se rechaza");
+  const fit = packCanon([
+    { title: "h", body: "habitat", habitat: true, domainName: "Obra" },
+    { title: "grande", body: "y".repeat(24000) + "FINAL_GRANDE", habitat: false, domainName: "Obra" },
+  ]);
+  check(
+    "integra_003",
+    !fit.integral && fit.omitted.some((o) => o.title === "grande") && !fit.lines.join("").includes("FINAL_GRANDE"),
+    "si no cabe, se declara y no se recorta",
   );
 
   return rows;
