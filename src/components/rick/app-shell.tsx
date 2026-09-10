@@ -53,6 +53,7 @@ import { computeVce } from "@/lib/rick/vce";
 import { cn, uid } from "@/lib/utils";
 import { watchKeyboard } from "@/lib/rick/keyboard";
 import { readMotor, motorHasVoice } from "@/lib/rick/motor";
+import { isStaleBuild, remoteBuild } from "@/lib/rick/update";
 import { turnMayCall } from "@/lib/rick/gates";
 import { readOwnerKey } from "@/lib/rick/owner-key";
 
@@ -122,6 +123,7 @@ export function RickApp() {
   const [motorId, setMotorId] = useState("xai");
   const [keyOpen, setKeyOpen] = useState(false);
   const [kb, setKb] = useState(0);
+  const [stale, setStale] = useState(false);
   const pendingRef = useRef<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const liveRef = useRef("");
@@ -154,6 +156,28 @@ export function RickApp() {
   }, [lockEnabled]);
 
   useEffect(() => watchKeyboard(setKb), []);
+
+  useEffect(() => {
+    let stop = false;
+    const check = () => {
+      void remoteBuild().then((remote) => {
+        if (!stop && isStaleBuild(remote)) setStale(true);
+      });
+    };
+    check();
+    const onVis = () => {
+      if (document.visibilityState === "visible") check();
+    };
+    window.addEventListener("focus", check);
+    document.addEventListener("visibilitychange", onVis);
+    const tick = window.setInterval(check, 60_000);
+    return () => {
+      stop = true;
+      window.removeEventListener("focus", check);
+      document.removeEventListener("visibilitychange", onVis);
+      window.clearInterval(tick);
+    };
+  }, []);
 
   useEffect(() => {
     if (persistOk === false) toast.error(persistError || "Persistencia no confirmada.");
@@ -747,6 +771,14 @@ export function RickApp() {
         </aside>
 
         <main className="flex min-h-0 min-w-0 flex-1 flex-col">
+          {stale ? (
+            <div className="flex items-center gap-2 bg-accent/15 px-3 py-2 text-xs text-fg">
+              <p className="min-w-0 flex-1">Hay código nuevo. Recargar no borra tu mesa.</p>
+              <Button size="sm" variant="ghost" onClick={() => window.location.reload()}>
+                Recargar
+              </Button>
+            </div>
+          ) : null}
           <header className="flex items-center gap-2 px-3 py-3 md:px-5">
             <div className="min-w-0 flex-1">
               <p className="font-display text-lg leading-none tracking-tight">Rick App</p>

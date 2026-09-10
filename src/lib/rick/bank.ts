@@ -10,7 +10,9 @@ import { normalizeContent } from "@/lib/rick/normalize";
 import { pushRecorrido } from "@/lib/rick/recorrido";
 import { maybeSummarize } from "@/lib/rick/summary";
 import { FRAME_CANON } from "@/lib/rick/blueprint";
+import { RICK_BUILD } from "@/lib/rick/build";
 import { turnMayCall } from "@/lib/rick/gates";
+import { isStaleBuild } from "@/lib/rick/update";
 import { acceptReceived, packCanon } from "@/lib/rick/integrity";
 import type { Domain, RickMessage } from "@/lib/rick/types";
 
@@ -249,6 +251,9 @@ export function runBank(): Scenario[] {
     !fit.integral && fit.omitted.some((o) => o.title === "grande") && !fit.lines.join("").includes("FINAL_GRANDE"),
     "si no cabe, se declara y no se recorta",
   );
+
+  check("update_001", isStaleBuild(null) === false && isStaleBuild(RICK_BUILD) === false, "mismo código no es stale");
+  check("update_002", isStaleBuild("otro") === true, "código distinto declara stale");
 
   return rows;
 }

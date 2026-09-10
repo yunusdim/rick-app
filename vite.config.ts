@@ -145,6 +145,9 @@ function authPopupPlugin(): Plugin {
 // `0.0.0.0:8080` is the live-preview contract — don't change host/port.
 // The dev server starts once `src/router.tsx` and `src/routes/` exist — see
 // AGENTS.md § "First scaffold".
+const rickBuild = (process.env.VERCEL_GIT_COMMIT_SHA || "").slice(0, 7) || "local";
+process.env.VITE_RICK_BUILD = rickBuild;
+
 export default defineConfig(({ command, isPreview }) => ({
   server: {
     host: "0.0.0.0",

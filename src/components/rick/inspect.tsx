@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { bankScore, runBank } from "@/lib/rick/bank";
 import { rates } from "@/lib/rick/govern";
 import { STATUS_LABEL, type Assembled, type EpistemicStatus } from "@/lib/rick/types";
+import { RICK_BUILD } from "@/lib/rick/build";
 import { useActiveDomain, useRick } from "@/lib/rick/store";
 import { cn } from "@/lib/utils";
 
@@ -104,7 +105,7 @@ export function InspectPanel() {
           El paquete entero, con estatus epistémico. El registro anota aciertos, no solo fallos.
         </p>
         <p className="mt-2 text-xs text-muted">
-          {persistOk ? "Persistencia confirmada." : persistError || "Persistencia no confirmada."}
+          Código {RICK_BUILD}. {persistOk ? "Persistencia confirmada." : persistError || "Persistencia no confirmada."}
           {driftBlocked ? ` · deriva bloqueada${driftReason ? ` (${driftReason})` : ""}` : ""}
         </p>
       </header>
