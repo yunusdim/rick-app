@@ -52,7 +52,6 @@ import { computeVce } from "@/lib/rick/vce";
 import { cn, uid } from "@/lib/utils";
 import { watchKeyboard } from "@/lib/rick/keyboard";
 import { readMotor, motorHasVoice } from "@/lib/rick/motor";
-import { RICK_BUILD } from "@/lib/rick/build";
 import { isStaleBuild, remoteBuild } from "@/lib/rick/update";
 import { admitReply } from "@/lib/rick/admit";
 import { turnMayCall } from "@/lib/rick/gates";
@@ -798,15 +797,18 @@ export function RickApp() {
             <div className="min-w-0 flex-1">
               <p className="font-display text-lg leading-none tracking-tight">Rick App</p>
               <p className="mt-1 truncate text-xs text-muted">
-                actualizada · {RICK_BUILD}
-                {home ? "" : " · fáctico"}
-                {locked ? " · candado" : ""}
-                {motorBlocked ? " · motor" : ""}
-                {driftBlocked ? " · deriva" : ""}
-                {writer ? "" : " · lectora"}
-                {persistOk === false ? " · persistencia" : ""}
-                {focus ? ` · foco ${focus.label}` : ""}
-                {recorder.recording ? " · grabando" : ""}
+                {[
+                  !home && "fáctico",
+                  locked && "candado",
+                  motorBlocked && "motor",
+                  driftBlocked && "deriva",
+                  !writer && "lectora",
+                  persistOk === false && "persistencia",
+                  focus && `foco ${focus.label}`,
+                  recorder.recording && "grabando",
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
               </p>
             </div>
             {recorder.recording ? <span className="rec-dot size-2 rounded-full bg-rec" /> : null}
@@ -1074,9 +1076,7 @@ function MesaThread({
   if (messages.length === 0) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center px-6 text-center">
-        <p className="text-xs font-medium tracking-widest text-muted uppercase">
-          Rick App · actualizada · {RICK_BUILD}
-        </p>
+        <p className="text-xs font-medium tracking-widest text-muted uppercase">Rick App</p>
         <h1 className="mt-3 font-display text-4xl tracking-tight">
           {awaitingIdentity ? "Ahora, quién sos" : "El entorno arma el turno"}
         </h1>
