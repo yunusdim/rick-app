@@ -798,7 +798,7 @@ export function RickApp() {
             <div className="min-w-0 flex-1">
               <p className="font-display text-lg leading-none tracking-tight">Rick App</p>
               <p className="mt-1 truncate text-xs text-muted">
-                actualizada · {PERSONAS[voice].name} · {RICK_BUILD}
+                actualizada · {RICK_BUILD}
                 {home ? "" : " · fáctico"}
                 {locked ? " · candado" : ""}
                 {motorBlocked ? " · motor" : ""}
